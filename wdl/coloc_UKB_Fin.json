@@ -1,0 +1,10 @@
+{
+    "ColocSusieDirect.finemapList1":"gs://zz-red/Omics/Proteomics/Coloc.susie.direct/FIN-R12_finemap.list",
+    "ColocSusieDirect.mapping1":"gs://zz-red/Omics/Proteomics/Coloc.susie.direct/map_FIN-R12.txt",
+    
+    "ColocSusieDirect.finemapList2":"gs://zz-red/Omics/Proteomics/Coloc.susie.direct/UKB-PPP_finemap.list",
+    "ColocSusieDirect.mapping2":"gs://zz-red/Omics/Proteomics/Coloc.susie.direct/map_UKB-PPP.txt",
+
+    "ColocSusieDirect.nPerBatch": 200,
+    "ColocSusieDirect.outPrefix": "R12-UKB"
+}
