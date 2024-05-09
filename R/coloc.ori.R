@@ -58,50 +58,7 @@ dt.list[, out2:=paste0(trait2, "---", gsub(":", ".", region2), ".txt")]
 #################
 
 grabRegion <- function(url, region, headout, out, maxRetry=5){
-    message("Fecthing ", region, " from ", url)
-    line = grabTabix(url, region, headout, out, maxRetry)
-    message("  Extracted ", line -1)
-    if(line == 1){
-        message("--No variant in the region ", region, " from ", url)
-        tries = c(region)
-        region1 = region
-        if(!grepl("chr", region)){
-            region1 = paste0("chr", region)
-        }
-        if(region1 != region){
-            tries = c(tries, region1)
-        }
-        region2 = gsub("chr23", "chrX", region1)
-        if(region2 != region1){
-            tries = c(tries, region2)
-        }
-        region3 = gsub("chrX", "chr23", region1)
-        if(region3 != region1){
-            tries = c(tries, region3)
-        }
-
-        region_nochr = gsub("chr", "", tries)
-        region_all = c(region, tries, region_nochr)
-        region_all_uni = unique(region_all)
-        region_all_uni_ex = region_all_uni[region_all_uni != region]
-        message("  Trying ", paste0(region_all_uni_ex, collapase=","))
-        for(region1 in region_all_uni_ex){
-            message("  ", region1)
-            line = grabTabix(url, region1, headout, out, maxRetry)
-            if(line > 1){
-                message("  Extracted ", line -1, " variant")
-                return(1)
-            }else{
-                message("  found no variant")
-            }
-        }
-        message("  Didn't find any variants in this region")
-    }
-}
-
-grabTabix <- function(url, region, headout, out, maxRetry=5){
-    #command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
-    command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out)
+    command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
     tryTimes = 0
     while(system(command) != 0){
         tryTimes = tryTimes + 1
@@ -112,12 +69,11 @@ grabTabix <- function(url, region, headout, out, maxRetry=5){
             stop("Error: can't processing file ", url, " ", region)
         }
     }
-    return(as.numeric(system(paste0("wc -l ", out, " | awk '{print $1}'"), intern = TRUE)))
 }
 
 # trait1
-message("\nExtracting finemaping results...")
-message("Finemap set 1:")
+message("Extracting finemaping results...")
+message("Set 1")
 #token = system("gcloud auth print-access-token", intern = TRUE)
 dt3.cur1 = dt.list[!duplicated(out1)]
 n = nrow(dt3.cur1)
@@ -128,19 +84,19 @@ headout = paste0("header1")
 system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout))
 
 for(idx in 1:n){
-    message(idx, "/", n)
+    message(idx, ", ", n)
     dt.t1 = dt3.cur1[idx]
     url = dt.t1$URL1
     out = dt.t1$out1
     region = dt.t1$region1
-    if(!file.exists(paste0(out))){
+    if(!file.exists(paste0(out, ".gz"))){
         grabRegion(url, region, headout, out)
     }
 }
 
 ####################
 # trait2
-message("Finemap set 2:")
+message("Set 2")
 dt3.cur2 = dt.list[!duplicated(out2)]
 n = nrow(dt3.cur2)
 url = dt3.cur2$URL2[1]
@@ -149,19 +105,19 @@ headout = paste0("header2")
 system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout))
 
 for(idx in 1:n){
-    message(idx, "/", n)
+    message(idx, ", ", n)
     dt.t1 = dt3.cur2[idx]
     url = dt.t1$URL2
     out = dt.t1$out2
     region = dt.t1$region2
-    if(!file.exists(paste0(out))){
+    if(!file.exists(paste0(out, ".gz"))){
         grabRegion(url, region, headout, out)
     }
 }
 
 ##########################
 # coloc
-message("\nColoc...")
+message("Coloc...")
 dts = list()
 dts.hits = list()
 nProcess = 0
@@ -169,7 +125,7 @@ lbf1 = dt.map1[V1=="lbf_variable_prefix"]$V2
 lbf2 = dt.map2[V1=="lbf_variable_prefix"]$V2
 for(f1 in dt3.cur1$out1){
     # prepare the first one
-    dt1 = fread(paste0(f1))
+    dt1 = fread(paste0(f1, ".gz"))
     cols1 = colnames(dt1)
     lbf_cols1 = cols1[grepl(lbf1, cols1)]
     lbfn_cols1 = gsub(lbf1, "lbf1_", lbf_cols1)
@@ -177,7 +133,6 @@ for(f1 in dt3.cur1$out1){
     dt.map1.use = dt.map1[V1!="lbf_variable_prefix"]
     dt.map1.use[!V1 %in% c("rsid"), V1:=paste0(V1, "1")]
     setnames(dt1, dt.map1.use$V2, dt.map1.use$V1)
-    dt1[, rsid:=gsub("chr23", "chrX", rsid)]
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
@@ -186,9 +141,9 @@ for(f1 in dt3.cur1$out1){
 
     for(f2 in dt.list.cur$out2){
         nProcess = nProcess + 1
-        message("======", nProcess, "/", nList, ": ", f1, ", ", f2)
+        message(nProcess, "/", nList)
         
-        dt2 = fread(paste0(f2))
+        dt2 = fread(paste0(f2, ".gz"))
         cols2 = colnames(dt2)
         lbf_cols2 = cols2[grepl(lbf2, cols2)]
         lbfn_cols2 = gsub(lbf2, "lbf2_", lbf_cols2)
@@ -197,12 +152,9 @@ for(f1 in dt3.cur1$out1){
         dt.map2.use = dt.map2[V1!="lbf_variable_prefix"]
         dt.map2.use[!V1 %in% c("rsid"), V1:=paste0(V1, "2")]
         setnames(dt2, dt.map2.use$V2, dt.map2.use$V1)
-        dt2[, rsid:=gsub("chr23", "chrX", rsid)]
 
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
         dt3 = merge(dt1.use, dt2[, ..use_cols2], by=c("rsid"))
-        n_dt3 = nrow(dt3)
-        message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
 
         cs1 = unique(dt3$cs1)
         cs2 = unique(dt3$cs2)
@@ -212,7 +164,7 @@ for(f1 in dt3.cur1$out1){
         dt.sum1 = data.table()
         dt.hit1 = data.table()
         if(length(cs1) == 0 || length(cs2) == 0 ){
-            message("Invalid cs, size cs1: ", length(cs1), ", cs2: ", length(cs2))
+            message("No valid cs")
         }else{
             message("Valid cs")
             sel_lbf_cols1 = paste0("lbf1_", cs1)
@@ -231,7 +183,6 @@ for(f1 in dt3.cur1$out1){
 
             dt.sum = ret1$summary
             if(!is.null(dt.sum)){
-                message("Valid coloc results")
                 dt3.1 = dt3[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
                 dt3.2 = dt3[!duplicated(cs2)][cs2!= -1, .(cs2, low_purity2)]
 
@@ -253,6 +204,7 @@ for(f1 in dt3.cur1$out1){
                 # clpp, clpa, clpm
                 dt.sum1[, clpp:=NA_real_]
                 dt.sum1[, clpa:=NA_real_]
+                dt.sum1[, clpm:=NA_real_]
                 dt.sum1[, cs1_size:=NA_real_]
                 dt.sum1[, cs2_size:=NA_real_]
                 dt.sum1[, cs_overlap:=NA_real_]
@@ -271,10 +223,9 @@ for(f1 in dt3.cur1$out1){
                     if(nrow(dt3.cur) != 0){
                         dt.sum1$clpp[idx] = sum(dt3.cur$pp, na.rm=TRUE)
                         dt.sum1$clpa[idx] = sum(dt3.cur$pa, na.rm=TRUE)
+                        dt.sum1$clpm[idx] = max(sum(dt3.cur$pip1, na.rm=TRUE), sum(dt3.cur$pip2, na.rm=TRUE))
                     }
                 }
-            }else{
-                message(" Invalid coloc results")
             }
         }
         dts[[nProcess]] = dt.sum1

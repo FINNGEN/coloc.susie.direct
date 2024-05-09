@@ -30,6 +30,11 @@ dt2[, pos:=stri_split_fixed(region, ":", simplify=TRUE)[, 2]]
 dt2[, start2:=as.numeric(stri_split_fixed(pos, "-", simplify=TRUE)[, 1])]
 dt2[, end2:=as.numeric(stri_split_fixed(pos, "-", simplify=TRUE)[, 2])]
 
+dt1[!grepl("chr", CHR), CHR:=paste0("chr", CHR)]
+dt1[, CHR:=gsub("chr23", "chrX", CHR)]
+
+dt2[!grepl("chr", CHR), CHR:=paste0("chr", CHR)]
+dt2[, CHR:=gsub("chr23", "chrX", CHR)]
 
 dt3 = dt1[dt2, .(URL, trait, region, i.URL, i.trait, i.region), on=.(CHR, start <= end2, end >= start2), nomatch=0]
 
