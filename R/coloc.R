@@ -161,6 +161,35 @@ for(idx in 1:n){
 
 ##########################
 # coloc
+# get lbf for cs from lbf_variable
+get_cs_lbf = function(dt, cs){
+    prior_weights = 1/nrow(dt)
+    ext_weight = log(prior_weights + sqrt(.Machine$double.eps))
+    lbf_cs = c()
+    for(cur_cs in cs){
+        cur_lbf_col = paste0("lbf1_", cur_cs)
+        if(!cur_lbf_col %in% colnames(dt)){
+            cur_lbf_col = paste0("lbf2_", cur_cs)
+        }
+
+        lbf_var = dt[[cur_lbf_col]]
+
+        lpo = lbf_var + ext_weight
+
+        maxlpo = max(lpo)
+
+        w_weighted = exp(lpo - maxlpo)
+        weighted_sum_w = sum(w_weighted)
+
+        lbf_model = maxlpo + log(weighted_sum_w)
+
+        lbf_cs = c(lbf_cs, log10(exp(lbf_model)))
+    }
+    ret = list()
+    ret[["lbf"]] = data.table(cs=cs, cs_log10bf=lbf_cs)
+    ret
+}
+
 message("\nColoc...")
 dts = list()
 dts.hits = list()
@@ -181,6 +210,7 @@ for(f1 in dt3.cur1$out1){
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
+    #saveRDS(dt1.use, file=paste0("dt1.rds"))
 
     dt.list.cur = dt.list[out1==f1]
 
@@ -204,10 +234,22 @@ for(f1 in dt3.cur1$out1){
         n_dt3 = nrow(dt3)
         message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
 
+        #saveRDS(dt2[, ..use_cols2], file=paste0("dt2.rds"))
+
         cs1 = unique(dt3$cs1)
         cs2 = unique(dt3$cs2)
-        cs1 = cs1[cs1 != -1]
-        cs2 = cs2[cs2 != -1]
+        cs1 = cs1[is.finite(cs1) & cs1 != -1]
+        cs2 = cs2[is.finite(cs2) & cs2 != -1]
+
+        sel_lbf_cols1 = paste0("lbf1_", cs1)
+        sel_lbf_cols2 = paste0("lbf2_", cs2)
+
+        # log10lbf
+        dt.lbf1 = get_cs_lbf(dt1, cs1)$lbf
+        dt.lbf2 = get_cs_lbf(dt2, cs2)$lbf
+        setnames(dt.lbf1, gsub("cs", "cs1", colnames(dt.lbf1)))
+        setnames(dt.lbf2, gsub("cs", "cs2", colnames(dt.lbf2)))
+
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
@@ -215,9 +257,8 @@ for(f1 in dt3.cur1$out1){
             message("Invalid cs, size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
             message("Valid cs")
-            sel_lbf_cols1 = paste0("lbf1_", cs1)
-            sel_lbf_cols2 = paste0("lbf2_", cs2)
 
+            ##### for the coloc
             bf1_rec = t(as.matrix(dt3[, ..sel_lbf_cols1]))
             colnames(bf1_rec) <- dt3$rsid
 
@@ -226,8 +267,8 @@ for(f1 in dt3.cur1$out1){
 
             ret1 = coloc.bf_bf(bf1_rec,bf2_rec)
 
-            #saveRDS(ret1, file=paste0(outPrefix, ".rds"))
-            #saveRDS(dt3, file=paste0(outPrefix, ".dt.rds"))
+            #saveRDS(ret1, file=paste0("ret.rds"))
+            #saveRDS(dt3, file=paste0("dt3.rds"))
 
             dt.sum = ret1$summary
             if(!is.null(dt.sum)){
@@ -246,6 +287,10 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1$nsnps1 = nrow(dt1)
                 dt.sum1$nsnps2 = nrow(dt2)
                 setnames(dt.sum1, c("idx1", "idx2"), c("cs1", "cs2"))
+
+                dt.sum1 = merge(dt.sum1, dt.lbf1, by="cs1")
+                dt.sum1 = merge(dt.sum1, dt.lbf2, by="cs2")
+                
 
                 hits = unique(c(dt.sum1$hit1, dt.sum1$hit2))
                 dt.hit1 = dt3[rsid %in% hits]
