@@ -7,7 +7,6 @@
 #######################################################
 
 require(data.table)
-require(stringi)
 require(coloc)
 
 args = commandArgs(TRUE)
@@ -162,35 +161,6 @@ for(idx in 1:n){
 
 ##########################
 # coloc
-# get lbf for cs from lbf_variable
-get_cs_lbf = function(dt, cs){
-    prior_weights = 1/nrow(dt)
-    ext_weight = log(prior_weights + sqrt(.Machine$double.eps))
-    lbf_cs = c()
-    for(cur_cs in cs){
-        cur_lbf_col = paste0("lbf1_", cur_cs)
-        if(!cur_lbf_col %in% colnames(dt)){
-            cur_lbf_col = paste0("lbf2_", cur_cs)
-        }
-
-        lbf_var = dt[[cur_lbf_col]]
-
-        lpo = lbf_var + ext_weight
-
-        maxlpo = max(lpo)
-
-        w_weighted = exp(lpo - maxlpo)
-        weighted_sum_w = sum(w_weighted)
-
-        lbf_model = maxlpo + log(weighted_sum_w)
-
-        lbf_cs = c(lbf_cs, log10(exp(lbf_model)))
-    }
-    ret = list()
-    ret[["lbf"]] = data.table(cs=cs, cs_log10bf=lbf_cs)
-    ret
-}
-
 message("\nColoc...")
 dts = list()
 dts.hits = list()
@@ -211,7 +181,6 @@ for(f1 in dt3.cur1$out1){
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
-    #saveRDS(dt1.use, file=paste0("dt1.rds"))
 
     dt.list.cur = dt.list[out1==f1]
 
@@ -235,22 +204,10 @@ for(f1 in dt3.cur1$out1){
         n_dt3 = nrow(dt3)
         message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
 
-        #saveRDS(dt2[, ..use_cols2], file=paste0("dt2.rds"))
-
         cs1 = unique(dt3$cs1)
         cs2 = unique(dt3$cs2)
-        cs1 = cs1[is.finite(cs1) & cs1 != -1]
-        cs2 = cs2[is.finite(cs2) & cs2 != -1]
-
-        sel_lbf_cols1 = paste0("lbf1_", cs1)
-        sel_lbf_cols2 = paste0("lbf2_", cs2)
-
-        # log10lbf
-        dt.lbf1 = get_cs_lbf(dt1, cs1)$lbf
-        dt.lbf2 = get_cs_lbf(dt2, cs2)$lbf
-        setnames(dt.lbf1, gsub("cs", "cs1", colnames(dt.lbf1)))
-        setnames(dt.lbf2, gsub("cs", "cs2", colnames(dt.lbf2)))
-
+        cs1 = cs1[cs1 != -1]
+        cs2 = cs2[cs2 != -1]
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
@@ -258,8 +215,9 @@ for(f1 in dt3.cur1$out1){
             message("Invalid cs, size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
             message("Valid cs")
+            sel_lbf_cols1 = paste0("lbf1_", cs1)
+            sel_lbf_cols2 = paste0("lbf2_", cs2)
 
-            ##### for the coloc
             bf1_rec = t(as.matrix(dt3[, ..sel_lbf_cols1]))
             colnames(bf1_rec) <- dt3$rsid
 
@@ -268,8 +226,8 @@ for(f1 in dt3.cur1$out1){
 
             ret1 = coloc.bf_bf(bf1_rec,bf2_rec)
 
-            #saveRDS(ret1, file=paste0("ret.rds"))
-            #saveRDS(dt3, file=paste0("dt3.rds"))
+            #saveRDS(ret1, file=paste0(outPrefix, ".rds"))
+            #saveRDS(dt3, file=paste0(outPrefix, ".dt.rds"))
 
             dt.sum = ret1$summary
             if(!is.null(dt.sum)){
@@ -289,72 +247,32 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1$nsnps2 = nrow(dt2)
                 setnames(dt.sum1, c("idx1", "idx2"), c("cs1", "cs2"))
 
-                dt.sum1 = merge(dt.sum1, dt.lbf1, by="cs1")
-                dt.sum1 = merge(dt.sum1, dt.lbf2, by="cs2")
-                
-
                 hits = unique(c(dt.sum1$hit1, dt.sum1$hit2))
                 dt.hit1 = dt3[rsid %in% hits]
 
                 # clpp, clpa, clpm
                 dt.sum1[, clpp:=NA_real_]
                 dt.sum1[, clpa:=NA_real_]
-                dt.sum1[, cs1_size:=NA_integer_]
-                dt.sum1[, cs2_size:=NA_integer_]
-                dt.sum1[, cs_overlap:=NA_integer_]
-                dt.sum1[, top1InOverlap:=NA_integer_]
-                dt.sum1[, top2InOverlap:=NA_integer_]
+                dt.sum1[, cs1_size:=NA_real_]
+                dt.sum1[, cs2_size:=NA_real_]
+                dt.sum1[, cs_overlap:=NA_real_]
 
                 dt3[, pp:=pip1*pip2]
                 dt3[, pa:=pmin(pip1, pip2)]
-                dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
 
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
                     idx1 = dt.sum1.cur$cs1
                     idx2 = dt.sum1.cur$cs2
                     dt3.cur = dt3[cs1==idx1 & cs2==idx2]
-
                     dt.sum1$cs1_size[idx] = nrow(dt1[cs1==idx1])
                     dt.sum1$cs2_size[idx] = nrow(dt2[cs2==idx2])
                     dt.sum1$cs_overlap[idx] = nrow(dt3.cur)
-                    
-
                     if(nrow(dt3.cur) != 0){
                         dt.sum1$clpp[idx] = sum(dt3.cur$pp, na.rm=TRUE)
                         dt.sum1$clpa[idx] = sum(dt3.cur$pa, na.rm=TRUE)
                     }
-
-                    # position check
-                    inRegion1 = 0
-                    inRegion2 = 0
-
-                    var1 = paste0("lbf1_", idx1)
-                    pos1 = dt3[get(var1)==max(get(var1))]$pos[1]
-
-                    var2 = paste0("lbf2_", idx2)
-                    pos2 = dt3[get(var2)==max(get(var2))]$pos[1]
-
-                    dt3.cs1 = dt3[cs1==idx1]
-                    if(nrow(dt3.cs1) > 0){
-                        pos_min = min(dt3.cs1$pos)
-                        pos_max = max(dt3.cs1$pos)
-                        if(pos2 <= pos_max & pos2 >= pos_min){
-                            inRegion2 = 1
-                        }
-                    }
-
-                    dt3.cs2 = dt3[cs2==idx2]
-                    if(nrow(dt3.cs2) > 0){
-                        pos_min = min(dt3.cs2$pos)
-                        pos_max = max(dt3.cs2$pos)
-                        if(pos1 <= pos_max & pos1 >= pos_min){
-                            inRegion1 = 1
-                        }
-                    }
-
-                    dt.sum1$top1InOverlap[idx] = inRegion1
-                    dt.sum1$top2InOverlap[idx] = inRegion2
+                    save.image("all.rda")
                 }
             }else{
                 message(" Invalid coloc results")

@@ -1,0 +1,7 @@
+
+{
+    "ColocSusieDirectMulti.colocInfo1": "gs://zz-red/pipeline/resources/info/test2/test7.txt",
+    "ColocSusieDirectMulti.colocInfo2": "gs://zz-red/pipeline/resources/info/testFull/resources.txt",
+    "ColocSusieDirectMulti.nColocPerBatch": 1000
+
+}
