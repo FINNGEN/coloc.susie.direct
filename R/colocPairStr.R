@@ -14,6 +14,8 @@ args = commandArgs(TRUE)
 info1 = args[1]
 # region information for finemap set 2
 info2 = args[2]
+# exclude same name trait
+bExclude = as.logical(args[3])
 
 
 processInfo <- function(infostr, side){
@@ -103,9 +105,14 @@ setnames(dt3, c("URL", "i.URL"), c("URL1", "URL2"))
 setnames(dt3, c("trait", "i.trait"), c("trait1", "trait2"))
 setnames(dt3, c("region", "i.region"), c("region1", "region2"))
 
-fwrite(dt3[order(trait1, region1, trait2, region2)], file=out, sep="\t", col.names=F, na=NA)
-message(nrow(dt3), " pairs in common")
-cat(nrow(dt3), file="N.count", sep="\n")
+dt3.ord = dt3[order(trait1, region1, trait2, region2)]
+message(nrow(dt3.ord), " total pairs have overlapped region.")
+if(bExclude){
+    dt3.ord = dt3.ord[trait1 != trait2]
+    message(nrow(dt3.ord), " pairs after removing traits with the same name")
+}
+fwrite(dt3.ord, file=out, sep="\t", col.names=F, na=NA)
+cat(nrow(dt3.ord), file="N.count", sep="\n")
 
 system(paste0("tar zcvf ", tar_name, " pairs.tsv map1.txt map2.txt coloc.info"))
 

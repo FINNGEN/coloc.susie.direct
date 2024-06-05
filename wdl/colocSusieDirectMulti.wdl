@@ -8,6 +8,7 @@ workflow ColocSusieDirectMulti{
         File colocInfo2
 
         Int nColocPerBatch = 1000
+        Boolean excludeSameNameTrait = true
     }
 
     Array[String] coloc1 = read_lines(colocInfo1)
@@ -17,7 +18,7 @@ workflow ColocSusieDirectMulti{
 
     scatter(pair1 in allPair){
         call generatePair{
-            input: coloc1=pair1.left, coloc2=pair1.right
+            input: coloc1=pair1.left, coloc2=pair1.right, excludeSameNameTrait=excludeSameNameTrait
         }
     }
 
@@ -47,16 +48,17 @@ task generatePair{
     input{
         String coloc1
         String coloc2
+        Boolean excludeSameNameTrait
     }
 
     command <<<
-        colocPairStr.R "~{coloc1}" "~{coloc2}"
+        colocPairStr.R "~{coloc1}" "~{coloc2}" ~{excludeSameNameTrait}
     >>>
 
     runtime{
         cpu: 2
         memory: "4 GB"
-        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.1"
+        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.2"
         zones: "europe-west1-b"
         disks: "local-disk 10 HDD"
     }
