@@ -22,6 +22,11 @@ nPerBlock=as.numeric(args[4])
 # current running block
 block=as.numeric(args[5])
 
+debug = FALSE
+if(length(args) >= 6){
+    debug = as.logical(args[6])
+}
+
 dt.list = fread(colocList, head=F)
 dt.map1 = fread(map1, head=F)
 dt.map2 = fread(map2, head=F)
@@ -85,7 +90,7 @@ grabRegion <- function(url, region, headout, out, maxRetry=5){
         region_all = c(region, tries, region_nochr)
         region_all_uni = unique(region_all)
         region_all_uni_ex = region_all_uni[region_all_uni != region]
-        message("  Trying ", paste0(region_all_uni_ex, collapase=","))
+        message("  Trying ", paste0(region_all_uni_ex, collapse=","))
         for(region1 in region_all_uni_ex){
             message("  ", region1)
             line = grabTabix(url, region1, headout, out, maxRetry)
@@ -231,11 +236,15 @@ for(f1 in dt3.cur1$out1){
         dt2[, rsid:=gsub("chr23", "chrX", rsid)]
 
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
-        dt3 = merge(dt1.use, dt2[, ..use_cols2], by=c("rsid"))
+        dt2.use = dt2[, ..use_cols2]
+        dt3 = merge(dt1.use, dt2.use, by=c("rsid"))
         n_dt3 = nrow(dt3)
         message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
 
         #saveRDS(dt2[, ..use_cols2], file=paste0("dt2.rds"))
+        if(debug){
+            save(dt1.use, dt2.use, dt3, file=paste0("out.rda"))
+        }
 
         cs1 = unique(dt3$cs1)
         cs2 = unique(dt3$cs2)
@@ -267,9 +276,9 @@ for(f1 in dt3.cur1$out1){
             colnames(bf2_rec) <- dt3[["rsid"]]
 
             ret1 = coloc.bf_bf(bf1_rec,bf2_rec)
-
-            #saveRDS(ret1, file=paste0("ret.rds"))
-            #saveRDS(dt3, file=paste0("dt3.rds"))
+            if(debug){
+                saveRDS(ret1, file="ret1.rds")
+            }
 
             dt.sum = ret1$summary
             if(!is.null(dt.sum)){
@@ -302,12 +311,15 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1[, cs1_size:=NA_integer_]
                 dt.sum1[, cs2_size:=NA_integer_]
                 dt.sum1[, cs_overlap:=NA_integer_]
-                dt.sum1[, top1InOverlap:=NA_integer_]
-                dt.sum1[, top2InOverlap:=NA_integer_]
+                dt.sum1[, topInOverlap:=NA_character_]
+                dt.sum1[, hit1_info:=NA_character_]
+                dt.sum1[, hit2_info:=NA_character_]
 
                 dt3[, pp:=pip1*pip2]
                 dt3[, pa:=pmin(pip1, pip2)]
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
+                dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
+                dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
 
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
@@ -330,31 +342,27 @@ for(f1 in dt3.cur1$out1){
                     inRegion2 = 0
 
                     var1 = paste0("lbf1_", idx1)
-                    pos1 = dt3[get(var1)==max(get(var1))]$pos[1]
+                    pos1 = dt1.use[get(var1)==max(get(var1))]$pos[1]
 
                     var2 = paste0("lbf2_", idx2)
-                    pos2 = dt3[get(var2)==max(get(var2))]$pos[1]
+                    pos2 = dt2.use[get(var2)==max(get(var2))]$pos[1]
 
-                    dt3.cs1 = dt3[cs1==idx1]
-                    if(nrow(dt3.cs1) > 0){
-                        pos_min = min(dt3.cs1$pos)
-                        pos_max = max(dt3.cs1$pos)
-                        if(pos2 <= pos_max & pos2 >= pos_min){
-                            inRegion2 = 1
-                        }
+                    pos_min_com = min(dt3$pos)
+                    pos_max_com = max(dt3$pos)
+
+                    if(pos1 >= pos_min_com & pos1 <= pos_max_com){
+                        inRegion1 = 1
                     }
 
-                    dt3.cs2 = dt3[cs2==idx2]
-                    if(nrow(dt3.cs2) > 0){
-                        pos_min = min(dt3.cs2$pos)
-                        pos_max = max(dt3.cs2$pos)
-                        if(pos1 <= pos_max & pos1 >= pos_min){
-                            inRegion1 = 1
-                        }
+                    if(pos2 >= pos_min_com & pos2 <= pos_max_com){
+                        inRegion2 = 1
                     }
 
-                    dt.sum1$top1InOverlap[idx] = inRegion1
-                    dt.sum1$top2InOverlap[idx] = inRegion2
+                    dt.sum1$topInOverlap[idx] = paste0(inRegion1, ",", inRegion2)
+                    dt.hit1.1 = dt.hit1[rsid == dt.sum1$hit1[idx]]
+                    dt.sum1$hit1_info[idx] = paste0(c(dt.hit1.1$beta1, dt.hit1.1$p1), collapse=",")
+                    dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
+                    dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
                 }
             }else{
                 message(" Invalid coloc results")
