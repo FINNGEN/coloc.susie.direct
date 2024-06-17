@@ -257,8 +257,6 @@ for(f1 in dt3.cur1$out1){
         cs1 = cs1[is.finite(cs1) & cs1 != -1]
         cs2 = cs2[is.finite(cs2) & cs2 != -1]
 
-        sel_lbf_cols1 = paste0("lbf1_", cs1)
-        sel_lbf_cols2 = paste0("lbf2_", cs2)
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
@@ -266,6 +264,11 @@ for(f1 in dt3.cur1$out1){
             message("Invalid cs, common SNPs: ", nrow(dt3), ", size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
             message("Valid cs")
+            # sort the cs
+            cs1 = sort(cs1)
+            cs2 = sort(cs2)
+            sel_lbf_cols1 = paste0("lbf1_", cs1)
+            sel_lbf_cols2 = paste0("lbf2_", cs2)
 
             ##### for the coloc
             bf1_rec = t(as.matrix(dt3[, ..sel_lbf_cols1]))
@@ -282,8 +285,8 @@ for(f1 in dt3.cur1$out1){
             dt.sum = ret1$summary
             if(!is.null(dt.sum)){
                 message("Valid coloc results")
-                dt3.1 = dt3[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
-                dt3.2 = dt3[!duplicated(cs2)][cs2!= -1, .(cs2, low_purity2)]
+                dt3.1 = dt1.use[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
+                dt3.2 = dt2.use[!duplicated(cs2)][cs2!= -1, .(cs2, low_purity2)]
 
                 dt.sum[, idx1:=cs1[idx1]]
                 dt.sum[, idx2:=cs2[idx2]]
