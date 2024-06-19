@@ -1,20 +1,22 @@
 # coloc.susie.direct
-Colocalization on Susie results from Finemapping pipeline directly
+Colocalization on Susie results from Finemap pipeline directly
 
 ## Inputs
 json
-* ColocSusieDirect.finemapList1: A file contains the path list to full finemap results (snp.gz)
-* ColocSusieDirect.mapping1: mapping of column
-
-* ColocSusieDirect.finemapList2:  same above, but for another coloc sets
-* ColocSusieDirect.mapping2:  same above, but for another coloc sets
-
-* ColocSusieDirect.nPerBatch: number of items to run in each instance, default 200, would be 10 - 20 minutes to run
-* ColocSusieDirect.outPrefix: output name
+* colocInfo1: coloc information for paired trait1
+* colocInfo2: coloc information for paired trait2
+* nColocPerBatch: number of coloc pairs distached to each VM node, default 1000
+* excludeSameNameTrait: exclude the traits with the same name, default true
+* h4pp\_thresh: H4 PP threshold to merge the coloc results, default 0.5
+* cs\_log10bf\_thresh1: log10bf threshold for credible set in finemapped cs1:cs1 pair
+* cs\_log10bf\_thresh2: log10bf threshold for other pair
 
 ## Outputs
-* info1: region information in finemap set 1
-* info2: region information in finemap set 2
-* pair:  potencial colocalization pairs
-* colocTotal: coloclization results
-* colocHits: all the SNP information for the top coloc hits in colocTotal
+* pairs: Array of File,  region matched for each dataset
+* N: Array of Int, indicate number of pairs in region
+* coloc: Array of File, coloc results for each pair
+* hit: Array of File, coloc top signals in each pair
+* colocQC: File, QC and merged coloc results from all dataset
+
+## Contacts
+zhili[dot]zheng[at]broadinstitute[dot]org
