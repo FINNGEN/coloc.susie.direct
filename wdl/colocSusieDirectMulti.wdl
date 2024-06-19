@@ -9,6 +9,9 @@ workflow ColocSusieDirectMulti{
 
         Int nColocPerBatch = 1000
         Boolean excludeSameNameTrait = true
+        Float h4pp_thresh = 0.5
+        Float cs_log10bf_thresh1 = 0.9
+        Float cs_log10bf_thresh2 = 1.0
     }
 
     Array[String] coloc1 = read_lines(colocInfo1)
@@ -20,20 +23,17 @@ workflow ColocSusieDirectMulti{
         call generatePair{
             input: coloc1=pair1.left, coloc2=pair1.right, excludeSameNameTrait=excludeSameNameTrait
         }
-    }
-
-    Array[File] processPairs = generatePair.pairs
-    Array[Int] Ns = generatePair.N
-
-    Int totalPairs = length(processPairs)
-
-    scatter(idx in range(totalPairs)){
-        Int curN = Ns[idx]
-        if(curN > 0){
+        if(generatePair.N > 0){
             call coloc_sub.ColocPair as colocPair {
-                input: info=pairs[idx], N=curN, nColocPerBatch=nColocPerBatch
+                input: info=generatePair.pairs, N=generatePair.N, nColocPerBatch=nColocPerBatch
             }
         }
+    }
+     
+    Array[File] allColoc = select_all(colocPair.coloc)
+
+    call mergeAllPair{
+        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh1=cs_log10bf_thresh1, cs_log10bf_thresh2=cs_log10bf_thresh2
     }
 
     output{
@@ -41,6 +41,7 @@ workflow ColocSusieDirectMulti{
         Array[Int] N = generatePair.N
         Array[File?] coloc = colocPair.coloc
         Array[File?] hit = colocPair.hit
+        File colocQC = mergeAllPair.colocQC
     } 
 }
 
@@ -66,5 +67,32 @@ task generatePair{
     output{
         File pairs = select_first(glob("*.pairs.tar.gz"))
         Int N = read_int("N.count")
+    }
+}
+
+task mergeAllPair{
+    input{
+        Array[File] colocs
+        Float h4pp_thresh
+        Float cs_log10bf_thresh1 
+        Float cs_log10bf_thresh2
+    }
+
+    command <<<
+        echo "~{sep='\n' colocs}" > list.txt
+        mergeAllPair.R list.txt ~{h4pp_thresh} ~{cs_log10bf_thresh1} ~{cs_log10bf_thresh2}
+    >>>
+
+    runtime{
+        cpu: 2
+        memory: "4 GB"
+        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.6"
+        zones: "europe-west1-b"
+        preemptible: 0
+        disks: "local-disk 100 HDD"
+    }
+    
+    output{
+        File colocQC = "colocQC.tsv.gz"
     }
 }

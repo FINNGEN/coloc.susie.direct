@@ -21,7 +21,7 @@ workflow ColocPair{
 
     meta{
         authors: ["Zhili"]
-        version: "0.1.1"
+        version: "0.1.6"
     }
 }
 
@@ -41,9 +41,9 @@ task coloc{
     runtime{
         cpu: 2
         memory: "4 GB"
-        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.1"
+        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.6"
         zones: "europe-west1-b"
-        disks: "local-disk 25 HDD"
+        disks: "local-disk 50 HDD"
     }
 
     output{
@@ -77,9 +77,9 @@ task mergeColoc{
     runtime{
         cpu: 1
         memory: "2 GB"
-        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.1"
+        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.6"
         zones: "europe-west1-b"
-        disks: "local-disk 15 HDD"
+        disks: "local-disk 50 HDD"
         preemptible: 0
     }
 
