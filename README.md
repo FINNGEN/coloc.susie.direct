@@ -3,13 +3,13 @@ Colocalization on Susie results from Finemap pipeline directly
 
 ## Inputs
 json
-* colocInfo1: coloc information for paired trait1
+* colocInfo1: coloc information for paired trait1, format: dataset name, dataset type, resource link
 * colocInfo2: coloc information for paired trait2
 * nColocPerBatch: number of coloc pairs distached to each VM node, default 1000
 * excludeSameNameTrait: exclude the traits with the same name, default true
 * h4pp\_thresh: H4 PP threshold to merge the coloc results, default 0.5
-* cs\_log10bf\_thresh1: log10bf threshold for credible set in finemapped cs1:cs1 pair
-* cs\_log10bf\_thresh2: log10bf threshold for other pair
+* cs\_log10bf\_thresh1: log10bf threshold for credible set in finemapped cs1:cs1 pair, default 0.9
+* cs\_log10bf\_thresh2: log10bf threshold for other pair, default 1.0
 
 ## Outputs
 * pairs: Array of File,  region matched for each dataset
