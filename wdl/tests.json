@@ -1,7 +1,9 @@
 
 {
-    "ColocSusieDirectMulti.colocInfo1": "gs://zz-red/pipeline/resources/info/test2/test7.txt",
-    "ColocSusieDirectMulti.colocInfo2": "gs://zz-red/pipeline/resources/info/testFull/resourcesFull.txt",
-    "ColocSusieDirectMulti.nColocPerBatch": 1500
+    "ColocSusieDirectMulti.colocInfo1": "gs://finngen-production-library-green/sandbox_coloc_resources/coloc_susie/demo1/test7.txt",
+    "ColocSusieDirectMulti.colocInfo2": "gs://finngen-production-library-green/sandbox_coloc_resources/coloc_susie/resources.txt",
+    "ColocSusieDirectMulti.nColocPerBatch": 1500,
+    "ColocSusieDirectMulti.docker": "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
+
 
 }

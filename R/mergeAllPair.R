@@ -28,10 +28,11 @@ for(file1 in files.val){
     idx = idx + 1
     message(idx, "/", n, ": ", file1)
     dt = fread(file1)
-    name2 = gsub(".sum.tsv.gz", "", file1)
+    name1 = basename(file1) 
+    name2 = gsub(".sum.tsv.gz", "", name1)
     name_sep = stri_split_fixed(name2, "-----", simplify=TRUE)
 
-    dt[, colocRes:=file1]
+    dt[, colocRes:=name1]
     dt[, dataset1:=name_sep[1]]
     dt[, dataset2:=name_sep[2]]
     nTotal = nTotal + nrow(dt)
@@ -39,7 +40,7 @@ for(file1 in files.val){
 
     dt.val = dt[PP.H4.abf >= h4Thresh]
 
-    dts[[file1]] = dt.val
+    dts[[idx]] = dt.val
 }
 
 dt.sig = rbindlist(dts)

@@ -5,14 +5,15 @@ workflow ColocPair{
         File info
         Int N
         Int nColocPerBatch
+        String docker
     }
 
     Int block = ceil(1.0 * N / nColocPerBatch)
     scatter(blk in range(block)){
-       call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk}
+       call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk, docker=docker}
     }
 
-    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, colocInfo=info}
+    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, colocInfo=info, docker=docker}
 
     output{
         File coloc = mergeColoc.coloc
@@ -21,7 +22,7 @@ workflow ColocPair{
 
     meta{
         authors: ["Zhili"]
-        version: "0.1.6"
+        version: "0.1.7"
     }
 }
 
@@ -31,6 +32,7 @@ task coloc{
         File colocInfo
         Int nPerBatch
         Int block
+        String docker
     }
 
     command <<<
@@ -41,9 +43,10 @@ task coloc{
     runtime{
         cpu: 2
         memory: "4 GB"
-        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.6"
+        docker: "~{docker}"
         zones: "europe-west1-b"
         disks: "local-disk 50 HDD"
+        noAddress: true
     }
 
     output{
@@ -58,6 +61,7 @@ task mergeColoc{
         Array[String] colocs
         Array[String] hits
         String colocInfo
+        String docker
     }
 
     command <<<
@@ -77,7 +81,8 @@ task mergeColoc{
     runtime{
         cpu: 1
         memory: "2 GB"
-        docker: "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.6"
+        docker: "~{docker}"
+        noAddress: true
         zones: "europe-west1-b"
         disks: "local-disk 50 HDD"
         preemptible: 0
