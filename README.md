@@ -21,5 +21,15 @@ json
 * hit: Array of File, coloc top signals in each pair
 * colocQC: File, QC and merged coloc results from all dataset
 
+## Submit to SandBox
+```
+# download the code
+# be in the folder: cd coloc.susie.direct
+# move the wdl to the script folder
+mv wdl script
+cd script
+./submit META.json Trait Type gs://YOUR_BUCKET_can_write/demo/test_project
+```
+
 ## Contacts
 zhili[dot]zheng[at]broadinstitute[dot]org

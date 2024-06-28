@@ -1,0 +1,49 @@
+#!/bin/bash -
+
+set -euo pipefail
+echo "================================================"
+echo "Submit a colocalization job to FinnGen Sandbox"
+echo "  Version: 0.1.7"
+echo "  Troubleshoot: Slack channel @analysis team <Zhili> or send email to our service desk"
+echo "================================================="
+
+if [ "$#" -ne 4 ]; then
+    echo "The colocalization submitter support only 4 arguments"
+    echo "  submit.sh meta.json Trait_name Data_type gs://YOUR_BUCKET_CAN_WRITE"
+    echo "    Example: submit.sh XXXX_meta.json T2D GWAS gs://fg-production-sandbox-6_green/DEMO_Folder/T2D_Project"
+    exit 1
+fi
+
+SCRIPT=$(realpath -s "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
+
+info="$1"
+name="$2"
+dataType="$3"
+bucket="$4"
+
+if [ "${info: -4}" != "json" ] || [ ! -f "${info}" ]; then
+    echo "The first parameter must be an existing json file downloaded from metadata"
+    exit 2
+fi
+
+if [ "${bucket:0:5}" != "gs://" ]; then
+    echo "The bucket must start with gs://"
+    exit 3
+fi
+
+$SCRIPTPATH/grabRegionFinemap.sh "$info" "$name" "$dataType" "$bucket"
+
+input1="${bucket}/${name}_${dataType}.txt"
+wdl="$SCRIPTPATH/wdl/colocSusieDirectMulti.wdl"
+dep="$SCRIPTPATH/wdl/colocSusiePair.zip"
+tmpJSON="${name}_${dataType}.json"
+cp $SCRIPTPATH/wdl/tests.json $tmpJSON
+sed -i 's#TO_REPLACE#'$input1'#g' $tmpJSON
+
+finngen-cli rw -i $tmpJSON -w $wdl -d $dep
+
+echo "The job is submmited successfully."
+read -n 1 -r -s -p $'Press enter to browse the realtime job status...\n'
+firefox "https://pipelines.app.finngen.fi/pipelines"
+
