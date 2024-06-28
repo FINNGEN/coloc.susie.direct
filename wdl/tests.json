@@ -1,9 +1,12 @@
 
 {
-    "ColocSusieDirectMulti.colocInfo1": "gs://finngen-production-library-green/sandbox_coloc_resources/coloc_susie/demo1/test7.txt",
+    "ColocSusieDirectMulti.colocInfo1": "TO_REPLACE",
+
     "ColocSusieDirectMulti.colocInfo2": "gs://finngen-production-library-green/sandbox_coloc_resources/coloc_susie/resources.txt",
     "ColocSusieDirectMulti.nColocPerBatch": 1500,
-    "ColocSusieDirectMulti.docker": "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
-
-
+    "ColocSusieDirectMulti.docker": "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7",
+    "ColocSusieDirectMulti.excludeSameNameTrait": true,
+    "ColocSusieDirectMulti.h4pp_thresh": 0.5,
+    "ColocSusieDirectMulti.cs_log10bf_thresh1": 0.9,
+    "ColocSusieDirectMulti.cs_log10bf_thresh2": 1.0
 }
