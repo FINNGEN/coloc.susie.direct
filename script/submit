@@ -32,6 +32,10 @@ if [ "${bucket:0:5}" != "gs://" ]; then
     exit 3
 fi
 
+if [ "${bucket: -1}" = "/" ]; then
+    bucket="${bucket%?}"
+fi
+
 $SCRIPTPATH/grabRegionFinemap.sh "$info" "$name" "$dataType" "$bucket"
 
 input1="${bucket}/${name}_${dataType}.txt"
