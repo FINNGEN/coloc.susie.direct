@@ -3,7 +3,8 @@
 
 dstList="$1"
 saveDst="$2"
-set -o nounset                                  # Treat unset variables as an error
+set -euo pipefail
+
 useList=""
 isFolder=false
 

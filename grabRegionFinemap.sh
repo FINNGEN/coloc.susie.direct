@@ -1,5 +1,6 @@
 #!/bin/bash -
 
+set -euo pipefail
 output="$1"
 name="$2"
 datatype="$3"
@@ -14,7 +15,6 @@ jq '.outputs."finemap.out_susie_cred"' $output | jq -r 'def flatten: .[] | if ty
 
 dstList="grab.TMP.list"
 
-set -o nounset                                  # Treat unset variables as an error
 useList=""
 isFolder=false
 
