@@ -1,5 +1,5 @@
 # coloc.susie.direct
-Colocalization on Susie results from Finemap pipeline directly
+Colocalization on Susie results from FinnGen fine-mapping pipeline. This repository hosted the code only.
 
 ## Inputs
 json
