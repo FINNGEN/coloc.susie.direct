@@ -1,0 +1,10 @@
+{
+    "colocsusiedirectmulti.colocInfo1": "gs://juham-fg/finnliver/coloc_input/FinnLiver_coloc_input.txt",
+    "colocsusiedirectmulti.colocInfo2": "gs://juham-fg/finnliver/coloc_input/FinnGen_R12_GWAS_for_Coloc.txt",
+    "colocsusiedirectmulti.nColocPerBatch": 1500,
+    "colocsusiedirectmulti.docker": "europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.7",
+    "colocsusiedirectmulti.excludeSameNameTrait": true,
+    "colocsusiedirectmulti.h4pp_thresh": 0.5,
+    "colocsusiedirectmulti.cs_log10bf_thresh1": 0.9,
+    "colocsusiedirectmulti.cs_log10bf_thresh2": 1.0
+}
