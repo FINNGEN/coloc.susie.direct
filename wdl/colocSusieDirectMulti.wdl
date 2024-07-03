@@ -2,7 +2,7 @@ version 1.0
 
 import "colocSusiePair.wdl" as coloc_sub
 
-workflow ColocSusieDirectMulti{
+workflow colocsusiedirectmulti{
     input{
         File colocInfo1
         File colocInfo2
