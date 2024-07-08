@@ -105,18 +105,26 @@ grabRegion <- function(url, region, headout, out, maxRetry=5){
     }
 }
 
-grabTabix <- function(url, region, headout, out, maxRetry=5){
+grabTabix <- function(url, region, headout, out, maxRetry=6){
     #command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
     command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out)
     tryTimes = 0
     while(system(command) != 0){
         tryTimes = tryTimes + 1
-        message("Retrying ", tryTimes)
-        token = system("gcloud auth print-access-token", intern = TRUE)
-        Sys.setenv(GCS_OAUTH_TOKEN=token)
+
         if(tryTimes > maxRetry){
             stop("Error: can't processing file ", url, " ", region)
         }
+
+        if(tryTimes > 2){
+            message("Tried more than twice, sleep some time to retry")
+            Sys.sleep(20 * tryTimes)
+        }
+ 
+        message("Retrying ", tryTimes)
+        token = system("gcloud auth print-access-token", intern = TRUE)
+        Sys.setenv(GCS_OAUTH_TOKEN=token)
+
     }
     return(as.numeric(system(paste0("wc -l ", out, " | awk '{print $1}'"), intern = TRUE)))
 }
