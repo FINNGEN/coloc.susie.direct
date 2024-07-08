@@ -11,8 +11,8 @@ json
 * cs\_log10bf\_thresh1: log10bf threshold for credible set in finemapped cs1:cs1 pair, default 0.9
 * cs\_log10bf\_thresh2: log10bf threshold for other pair, default 1.0
 * docker: 
-** refinery: europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.7 
-** sandbox: eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7
+** refinery: europe-docker.pkg.dev/finngen-refinery-dev/eu.gcr.io/coloc.susie.direct:0.1.8
+** sandbox: eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.8
 
 ## Outputs
 * pairs: Array of File,  region matched for each dataset
