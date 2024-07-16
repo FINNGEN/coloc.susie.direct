@@ -139,17 +139,30 @@ n = nrow(dt3.cur1)
 url = dt3.cur1$URL1[1]
 headout = paste0("header1")
 
-system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout))
+curTry = 0
+while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+    curTry = curTry + 1
+    if(curTry >= 6){
+        stop("can't get the header")
+    }
+    Sys.sleep(10)
+}
 
+preURL = ""
 for(idx in 1:n){
     message(idx, "/", n)
     dt.t1 = dt3.cur1[idx]
     url = dt.t1$URL1
     out = dt.t1$out1
     region = dt.t1$region1
+    if(preURL != "" && preURL != url){
+        message("clean because URL changed")
+        system("rm -rf *.tbi")
+    }
     if(!file.exists(paste0(out))){
         grabRegion(url, region, headout, out)
     }
+    preURL = url
 }
 
 ####################
@@ -160,17 +173,30 @@ n = nrow(dt3.cur2)
 url = dt3.cur2$URL2[1]
 headout = paste0("header2")
 
-system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout))
+curTry = 0
+while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+    curTry = curTry + 1
+    if(curTry >= 6){
+        stop("can't get the header")
+    }
+    Sys.sleep(10)
+}
 
+preURL = ""
 for(idx in 1:n){
     message(idx, "/", n)
     dt.t1 = dt3.cur2[idx]
     url = dt.t1$URL2
     out = dt.t1$out2
     region = dt.t1$region2
+    if(preURL != "" && preURL != url){
+        message("clean because URL changed")
+        system("rm -rf *.tbi")
+    }
     if(!file.exists(paste0(out))){
         grabRegion(url, region, headout, out)
     }
+    preURL = url
 }
 
 ##########################

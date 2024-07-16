@@ -17,6 +17,18 @@ info2 = args[2]
 # exclude same name trait
 bExclude = as.logical(args[3])
 
+downFile <- function(URL, filename, numTries=5){
+    command = paste0("gsutil cat ", URL, " > ", filename)
+    curTry = 0
+    while(system(command) != 0){
+        message("Retring...")
+        if(curTry >= numTries){
+            stop("cannot download ", URL, " to ", filename)
+        }
+        Sys.sleep(10 * curTry)
+        curTry = curTry + 1
+    }
+}
 
 processInfo <- function(infostr, side){
     message("Processing coloc", side, ", ", infostr)
@@ -45,7 +57,8 @@ processInfo <- function(infostr, side){
     }
 
     system(paste0("gsutil cat ", region_list, " > regions.tsv"))    
-    system(paste0("gsutil cat ", mapping, " > map", side, ".txt"))    
+    downFile(region_list, "regions.tsv")
+    downFile(mapping, paste0("map", side, ".txt"))
 
     dt.region = fread("regions.tsv", head=TRUE)
     if(sum(colnames(dt.region) == c("URL", "trait", "region")) != 3){
