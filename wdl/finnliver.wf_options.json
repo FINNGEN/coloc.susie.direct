@@ -1,0 +1,10 @@
+{
+    "write_to_cache": true,
+    "read_from_cache": false,
+    "google_labels": {
+        "analysis": "coloc-susie-r12-finnliver",
+        "cromwell-submitter": "juha-dot-mehtonen-at-finngen-dot-fi",
+        "cromwell-workflow-name": "colocsusiedirectmulti",
+        "product": "core-analysis-r12"
+    }
+}
