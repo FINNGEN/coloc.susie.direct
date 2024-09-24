@@ -6,27 +6,29 @@ name="$2"
 datatype="$3"
 outDir="$4"
 
+WD="$(mktemp -d)"
 
 echo "This script gathers the information from finemapping pipeline to the colocalization pipeline."
 echo "Maintainer: Zhili"
 
+dstList="$WD/grab.TMP.list"
 echo "Getting susie credible sets..."
-jq '.outputs."finemap.out_susie_cred"' $output | jq -r 'def flatten: .[] | if type == "array" then flatten else . end; if type == "array" then flatten else . end // .' > grab.TMP.list
+jq '.outputs."finemap.out_susie_cred"' $output | jq -r 'def flatten: .[] | if type == "array" then flatten else . end; if type == "array" then flatten else . end // .' > $dstList
 
-dstList="grab.TMP.list"
 
 useList=""
 isFolder=false
 
 if [[ "${dstList: -1}" == "/" ]]; then
     echo "Input is a folder: $dstList" 
-    gcloud storage ls ${dstList}*.SUSIE.cred.bgz > list_temp.txt
-    useList="list_temp.txt"
+    gcloud storage ls ${dstList}*.SUSIE.cred.bgz > $WD/list_temp.txt
+    useList="$WD/list_temp.txt"
     isFolder=true
 else
     useList="$dstList"
 fi
 
+cd $WD
 echo "Merging the regions..."
 readarray -t files < $useList
 gcloud storage cp gs://finngen-production-library-green/sandbox_coloc_resources/coloc_susie/Coloc.map.txt .

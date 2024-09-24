@@ -3,7 +3,7 @@
 set -euo pipefail
 echo "================================================"
 echo "Submit a colocalization job to FinnGen Sandbox"
-echo "  Version: 0.1.7"
+echo "  Version: 0.1.9"
 echo "  Troubleshoot: Slack channel @analysis team <Zhili> or send email to our service desk"
 echo "================================================="
 
@@ -36,12 +36,14 @@ if [ "${bucket: -1}" = "/" ]; then
     bucket="${bucket%?}"
 fi
 
+
 $SCRIPTPATH/grabRegionFinemap.sh "$info" "$name" "$dataType" "$bucket"
 
 input1="${bucket}/${name}_${dataType}.txt"
 wdl="$SCRIPTPATH/wdl/colocSusieDirectMulti.wdl"
 dep="$SCRIPTPATH/wdl/colocSusiePair.zip"
-tmpJSON="${name}_${dataType}.json"
+tmpDir="$(mktemp -d)"
+tmpJSON="$tmpDir/${name}_${dataType}.json"
 cp $SCRIPTPATH/wdl/tests.json $tmpJSON
 sed -i 's#TO_REPLACE#'$input1'#g' $tmpJSON
 
