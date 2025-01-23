@@ -10,8 +10,7 @@ workflow ColocSusieDirectMulti{
         Int nColocPerBatch = 1000
         Boolean excludeSameNameTrait = true
         Float h4pp_thresh = 0.5
-        Float cs_log10bf_thresh1 = 0.9
-        Float cs_log10bf_thresh2 = 1.0
+        Float cs_log10bf_thresh = 0.9
         Float probmass_threshold = 0.9
         String docker = "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
     }

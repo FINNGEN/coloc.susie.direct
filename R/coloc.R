@@ -332,6 +332,7 @@ for(f1 in dt3.cur1$out1){
             }
 
             dt.sum = ret1$summary
+            vardata = list()
             if(!is.null(dt.sum)){
                 message("Valid coloc results")
                 dt3.1 = dt1.use[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
@@ -379,7 +380,6 @@ for(f1 in dt3.cur1$out1){
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
-                vardata = list()
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
                     idx1 = dt.sum1.cur$cs1

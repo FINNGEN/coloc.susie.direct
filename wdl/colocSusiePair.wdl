@@ -97,6 +97,6 @@ task mergeColoc{
     output{
         File coloc = select_first(glob("*.sum.tsv.gz"))
         File hit = select_first(glob("*.hits.tsv.gz"))
-        File hit = select_first(glob("*.variants.tsv.gz"))
+        File variant = select_first(glob("*.variants.tsv.gz"))
     }
 }
