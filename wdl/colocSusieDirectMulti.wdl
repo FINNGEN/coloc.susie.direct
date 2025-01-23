@@ -12,6 +12,7 @@ workflow ColocSusieDirectMulti{
         Float h4pp_thresh = 0.5
         Float cs_log10bf_thresh1 = 0.9
         Float cs_log10bf_thresh2 = 1.0
+        Float probmass_threshold = 0.9
         String docker = "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
     }
 
@@ -34,7 +35,7 @@ workflow ColocSusieDirectMulti{
     Array[File] allColoc = select_all(colocPair.coloc)
 
     call mergeAllPair{
-        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh1=cs_log10bf_thresh1, cs_log10bf_thresh2=cs_log10bf_thresh2, docker=docker
+        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh=cs_log10bf_thresh, docker=docker,probmass_threshold=probmass_threshold
     }
 
     output{
@@ -76,14 +77,14 @@ task mergeAllPair{
     input{
         Array[File] colocs
         Float h4pp_thresh
-        Float cs_log10bf_thresh1 
-        Float cs_log10bf_thresh2
+        Float cs_log10bf_thresh
+        Float probmass_threshold
         String docker
     }
 
     command <<<
         echo "~{sep='\n' colocs}" > list.txt
-        mergeAllPair.R list.txt ~{h4pp_thresh} ~{cs_log10bf_thresh1} ~{cs_log10bf_thresh2}
+        mergeAllPair.R list.txt ~{h4pp_thresh} ~{cs_log10bf_thresh}  ~{probmass_threshold}
     >>>
 
     runtime{

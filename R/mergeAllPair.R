@@ -13,8 +13,8 @@ args = commandArgs(TRUE)
 
 fileList = args[1]
 h4Thresh = as.numeric(args[2])
-cs_log10bf_thresh1 = as.numeric(args[3])
-cs_log10bf_thresh2 = as.numeric(args[4])
+cs_log10bf_thresh = as.numeric(args[3])
+probmass_threshold = as.numeric(args[4])
 
 
 files.all = readLines(fileList)
@@ -38,7 +38,7 @@ for(file1 in files.val){
     nTotal = nTotal + nrow(dt)
     message(" Current: ", nrow(dt), " rows, total: ", nTotal)
 
-    dt.val = dt[PP.H4.abf >= h4Thresh]
+    dt.val = dt[PP.H4.abf >= h4Thresh & probmass_1 > probmass_threshold & probmass_2 > probmass_threshold]
 
     dts[[idx]] = dt.val
 }
@@ -46,12 +46,12 @@ for(file1 in files.val){
 dt.sig = rbindlist(dts)
 rm(dts)
 
-dt1 = dt.sig[cs1==1 & cs2==1 & cs1_log10bf >= cs_log10bf_thresh1 & cs2_log10bf >= cs_log10bf_thresh1]
 
-dt2 = dt.sig[!(cs1==1 & cs2==1) & cs1_log10bf >= cs_log10bf_thresh2 & cs2_log10bf >= cs_log10bf_thresh2]
+##NOTE: this probably should not care about cs number, it's not necessarily the first 
 
 
-dt.qc = rbind(dt1, dt2)
+
+dt.qc = dt.sig[cs1_log10bf >= cs_log10bf_thresh & cs2_log10bf >= cs_log10bf_thresh]
 
 setcolorder(dt.qc, c("dataset1", "dataset2"))
 

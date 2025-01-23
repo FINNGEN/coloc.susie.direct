@@ -51,6 +51,7 @@ if(start > end){
 
 output = paste0("region", block, ".sum.tsv")
 output.hits = paste0("region", block, ".hits.tsv")
+output.vars = paste0("region", block, ".variants.tsv")
 message("Processing from ", start, " to ", end)
 
 dt.list = dt.list[start:end]
@@ -230,9 +231,23 @@ get_cs_lbf = function(dt, cs){
     ret
 }
 
+get_probability_mass = function(dt,prob_col,pos_col, start_pos,end_pos){
+    ## Get probability mass of range between start_pos and end_pos
+    ## In case positions do not match directly, get the set of variants strictly inside the range
+    if((start_pos>max(dt[[pos_col]])) | (end_pos<min(dt[[pos_col]])) | (end_pos<start_pos)){
+        0.0
+    } 
+    else {
+        start=which.max(dt[[pos_col]]>=start_pos)
+        end=which.min(dt[[pos_col]]<=end_pos)
+        sum(dt[[prob_col]][start:(end-1)])
+    }
+}
+
 message("\nColoc...")
 dts = list()
 dts.hits = list()
+dts.vars=list()
 nProcess = 0
 lbf1 = dt.map1[V1=="lbf_variable_prefix"]$V2
 lbf2 = dt.map2[V1=="lbf_variable_prefix"]$V2
@@ -354,6 +369,8 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1[, cs2_size:=NA_integer_]
                 dt.sum1[, cs_overlap:=NA_integer_]
                 dt.sum1[, topInOverlap:=NA_character_]
+                dt.sum1[, probmass_1:=NA_character_]
+                dt.sum1[, probmass_2:=NA_character_]
                 dt.sum1[, hit1_info:=NA_character_]
                 dt.sum1[, hit2_info:=NA_character_]
 
@@ -362,7 +379,7 @@ for(f1 in dt3.cur1$out1){
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
-
+                vardata = list()
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
                     idx1 = dt.sum1.cur$cs1
@@ -400,11 +417,48 @@ for(f1 in dt3.cur1$out1){
                         inRegion2 = 1
                     }
 
+                    # check if the probability masses are in shared region or not
+                    alphacol_1 = paste0("alpha",as.character(idx1))
+                    alphacol_2 = paste0("alpha",as.character(idx2))
+                    # calculate probability mass that is in shared region
+                    probmass_in_shared_1 = get_probability_mass(dt1,alphacol_1,"position",pos_min_com,pos_max_com)
+                    probmass_in_shared_2 = get_probability_mass(dt2,alphacol_2,"position",pos_min_com,pos_max_com)
+                    
+                    dt.sum1$probmass_1[idx] = probmass_in_shared_1
+                    dt.sum1$probmass_2[idx] = probmass_in_shared_2
                     dt.sum1$topInOverlap[idx] = paste0(inRegion1, ",", inRegion2)
                     dt.hit1.1 = dt.hit1[rsid == dt.sum1$hit1[idx]]
                     dt.sum1$hit1_info[idx] = paste0(c(dt.hit1.1$beta1, dt.hit1.1$p1), collapse=",")
                     dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
                     dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
+
+                    ## Gather variant information for credset variants and predicted top variants. Gather first variants that are common, then those that are not common in both datasets, and then rbind them.
+                    # common vars: cs vars, as well as hit vars
+                    # NOTE: in case there is only one cs, there is no row in the output name.
+                    if(nrow(dt.sum1)==1){
+                        h4_col="SNP.PP.H4.abf"
+                    }
+                    else{
+                        h4_col = paste0("SNP.PP.H4.row",as.character(idx))
+                    }
+                    take_cols=c("snp",h4_col)
+                    h4_pp_data = ret1$results[, ..take_cols]
+                    setnames(h4_pp_data,c(h4_col),"SNP.PP.H4")
+                    h4_pp_data$row_idx=idx
+                    common_snps=rbind(dt3.cur,dt.hit1.1,dt.hit1.2,fill=T)
+                    
+                    common_vars = merge(common_snps, h4_pp_data, by.x="rsid", by.y="snp")
+                    # cs1 & cs2 data
+                    cs1_vars = dt1.use[cs1==idx1 & !(rsid %in% common_vars$rsid)]
+                    cs2_vars = dt2.use[cs2==idx2 & !(rsid %in% common_vars$rsid)]
+
+                    
+                    var_d = rbind(common_vars,cs1_vars,cs2_vars,fill=T)
+                    if(!("p2" %in% colnames(var_d))){
+                        var_d$p2 = NA
+                    }
+                    var_cols = c("rsid","trait1","region1","trait2","region2","cs1","cs2","pip1","p1","beta1","pip2","p2","beta2","pp","pa","SNP.PP.H4")
+                    vardata[[idx]] = var_d[,..var_cols]
                 }
             }else{
                 message(" Invalid coloc results")
@@ -412,15 +466,18 @@ for(f1 in dt3.cur1$out1){
         }
         dts[[nProcess]] = dt.sum1
         dts.hits[[nProcess]] = dt.hit1
+        dts.vars[[nProcess]] = rbindlist(vardata) 
     }
 }
 
 
 dt.coloc = rbindlist(dts)
 dt.hits = rbindlist(dts.hits, fill=TRUE)
+dt.vars = unique(rbindlist(dts.vars))
 if(nrow(dt.coloc) != 0){
     setcolorder(dt.coloc, c("trait1", "trait2", "region1", "region2", "cs1", "cs2"))
 }
 fwrite(dt.coloc, file=output, sep="\t", na="NA", quote=F)
 fwrite(dt.hits, file=output.hits, sep="\t", na="NA",quote=F)
+fwrite(dt.vars,file=output.vars,sep="\t",na="NA",quote=F)
 message("Done")

@@ -13,7 +13,7 @@ workflow ColocPair{
        call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk, docker=docker}
     }
 
-    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, colocInfo=info, docker=docker}
+    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, variants=coloc.variants, colocInfo=info, docker=docker}
 
     output{
         File coloc = mergeColoc.coloc
@@ -52,6 +52,7 @@ task coloc{
     output{
         File res = "region" + block + ".sum.tsv"
         File hits = "region" + block + ".hits.tsv"
+        File variants = "region" + block + ".variants.tsv"
     }
 }
 
@@ -60,6 +61,7 @@ task mergeColoc{
     input{
         Array[String] colocs
         Array[String] hits
+        Array[String] variants
         String colocInfo
         String docker
     }
@@ -69,6 +71,7 @@ task mergeColoc{
         out="$(echo $filename | sed 's/.pairs.tar.gz//')"
         echo "~{sep='\n' colocs}" > sum.txt
         echo "~{sep='\n' hits}" > hits.txt
+        echo "~{sep='\n' variants}" > variants.txt
 
         cat sum.txt | gcloud storage cp -I .
         awk 'FNR>1 || NR==1' *.tsv | gzip > ${out}.sum.tsv.gz
@@ -76,6 +79,9 @@ task mergeColoc{
 
         cat hits.txt | gcloud storage cp -I .
         awk 'FNR>1 || NR==1' *.tsv | gzip > ${out}.hits.tsv.gz
+        
+        cat variants.txt | gcloud storage cp -I .
+        awk 'FNR>1 || NR==1' *.tsv | gzip > ${out}.variants.tsv.gz
     >>>
 
     runtime{
@@ -91,5 +97,6 @@ task mergeColoc{
     output{
         File coloc = select_first(glob("*.sum.tsv.gz"))
         File hit = select_first(glob("*.hits.tsv.gz"))
+        File hit = select_first(glob("*.variants.tsv.gz"))
     }
 }
