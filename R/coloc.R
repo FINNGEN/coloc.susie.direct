@@ -309,6 +309,7 @@ for(f1 in dt3.cur1$out1){
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
+        vardata = list()
         if(nrow(dt3) == 0 || length(cs1) == 0 || length(cs2) == 0 ){
             message("Invalid cs, common SNPs: ", nrow(dt3), ", size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
@@ -332,7 +333,6 @@ for(f1 in dt3.cur1$out1){
             }
 
             dt.sum = ret1$summary
-            vardata = list()
             if(!is.null(dt.sum)){
                 message("Valid coloc results")
                 dt3.1 = dt1.use[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
