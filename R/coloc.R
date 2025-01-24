@@ -231,16 +231,17 @@ get_cs_lbf = function(dt, cs){
     ret
 }
 
-get_probability_mass = function(dt,prob_col,pos_col, start_pos,end_pos){
+get_probability_mass = function(dt,lbf_col,pos_col, start_pos,end_pos){
     ## Get probability mass of range between start_pos and end_pos
     ## In case positions do not match directly, get the set of variants strictly inside the range
+    prob_col = exp(dt[[lbf_col]])/sum(exp(dt[[lbf_col]]))
     if((start_pos>max(dt[[pos_col]])) | (end_pos<min(dt[[pos_col]])) | (end_pos<start_pos)){
         0.0
     } 
     else {
         start=which.max(dt[[pos_col]]>=start_pos)
         end=which.min(dt[[pos_col]]<=end_pos)
-        sum(dt[[prob_col]][start:(end-1)])
+        sum(prob_col[start:(end-1)])
     }
 }
 
@@ -417,12 +418,9 @@ for(f1 in dt3.cur1$out1){
                         inRegion2 = 1
                     }
 
-                    # check if the probability masses are in shared region or not
-                    alphacol_1 = paste0("alpha",as.character(idx1))
-                    alphacol_2 = paste0("alpha",as.character(idx2))
                     # calculate probability mass that is in shared region
-                    probmass_in_shared_1 = get_probability_mass(dt1,alphacol_1,"position",pos_min_com,pos_max_com)
-                    probmass_in_shared_2 = get_probability_mass(dt2,alphacol_2,"position",pos_min_com,pos_max_com)
+                    probmass_in_shared_1 = get_probability_mass(dt1,var1,"position",pos_min_com,pos_max_com)
+                    probmass_in_shared_2 = get_probability_mass(dt2,var2,"position",pos_min_com,pos_max_com)
                     
                     dt.sum1$probmass_1[idx] = probmass_in_shared_1
                     dt.sum1$probmass_2[idx] = probmass_in_shared_2
