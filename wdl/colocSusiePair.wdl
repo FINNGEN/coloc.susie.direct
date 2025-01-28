@@ -18,6 +18,7 @@ workflow ColocPair{
     output{
         File coloc = mergeColoc.coloc
         File hit = mergeColoc.hit
+        File variant = mergeColoc.variant
     }
 
     meta{
