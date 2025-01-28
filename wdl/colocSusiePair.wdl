@@ -38,6 +38,9 @@ task coloc{
     command <<<
         tar xvf ~{colocInfo}
         coloc.R pairs.tsv map1.txt map2.txt ~{nPerBatch} ~{block}
+        #make sure variants are unique
+        cat <(head -n1 "region~{block}.variants.tsv") <(tail -n+2 "region~{block}.variants.tsv"|sort|uniq) > vars2
+        mv vars2 "region~{block}.variants.tsv"
     >>>
 
     runtime{

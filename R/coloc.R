@@ -52,6 +52,7 @@ if(start > end){
 output = paste0("region", block, ".sum.tsv")
 output.hits = paste0("region", block, ".hits.tsv")
 output.vars = paste0("region", block, ".variants.tsv")
+vars_append=F
 message("Processing from ", start, " to ", end)
 
 dt.list = dt.list[start:end]
@@ -234,21 +235,25 @@ get_cs_lbf = function(dt, cs){
 get_probability_mass = function(dt,lbf_col,pos_col, start_pos,end_pos){
     ## Get probability mass of range between start_pos and end_pos
     ## In case positions do not match directly, get the set of variants strictly inside the range
-    prob_col = exp(dt[[lbf_col]])/sum(exp(dt[[lbf_col]]))
     if((start_pos>max(dt[[pos_col]])) | (end_pos<min(dt[[pos_col]])) | (end_pos<start_pos)){
         0.0
-    } 
-    else {
-        start=which.max(dt[[pos_col]]>=start_pos)
-        end=which.min(dt[[pos_col]]<=end_pos)
-        sum(prob_col[start:(end-1)])
+    }
+    else{
+        values = dt[get(pos_col)>=start_pos & get(pos_col)<=end_pos]
+
+        out=sum(exp(values[[lbf_col]]) /sum(exp(dt[[lbf_col]])))
+        if(is.na(out)){
+            0.0
+        }
+        else{
+            out
+        }
     }
 }
 
 message("\nColoc...")
 dts = list()
 dts.hits = list()
-dts.vars=list()
 nProcess = 0
 lbf1 = dt.map1[V1=="lbf_variable_prefix"]$V2
 lbf2 = dt.map2[V1=="lbf_variable_prefix"]$V2
@@ -310,7 +315,6 @@ for(f1 in dt3.cur1$out1){
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
-        vardata = list()
         if(nrow(dt3) == 0 || length(cs1) == 0 || length(cs2) == 0 ){
             message("Invalid cs, common SNPs: ", nrow(dt3), ", size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
@@ -456,7 +460,10 @@ for(f1 in dt3.cur1$out1){
                         var_d$p2 = NA
                     }
                     var_cols = c("rsid","trait1","region1","trait2","region2","cs1","cs2","pip1","p1","beta1","pip2","p2","beta2","pp","pa","SNP.PP.H4")
-                    vardata[[idx]] = var_d[,..var_cols]
+                    # write variants to variant file, this seems to take too much memory
+                    fwrite(var_d[,..var_cols],file=output.vars,sep="\t",na="NA",quote=F,append=vars_append)
+                    vars_append=T
+
                 }
             }else{
                 message(" Invalid coloc results")
@@ -464,18 +471,16 @@ for(f1 in dt3.cur1$out1){
         }
         dts[[nProcess]] = dt.sum1
         dts.hits[[nProcess]] = dt.hit1
-        dts.vars[[nProcess]] = rbindlist(vardata) 
     }
 }
 
 
 dt.coloc = rbindlist(dts)
 dt.hits = rbindlist(dts.hits, fill=TRUE)
-dt.vars = unique(rbindlist(dts.vars))
 if(nrow(dt.coloc) != 0){
     setcolorder(dt.coloc, c("trait1", "trait2", "region1", "region2", "cs1", "cs2"))
 }
 fwrite(dt.coloc, file=output, sep="\t", na="NA", quote=F)
 fwrite(dt.hits, file=output.hits, sep="\t", na="NA",quote=F)
-fwrite(dt.vars,file=output.vars,sep="\t",na="NA",quote=F)
+
 message("Done")
