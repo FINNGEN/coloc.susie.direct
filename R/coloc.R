@@ -108,6 +108,16 @@ grabRegion <- function(url, region, headout, out, maxRetry=5){
 }
 
 grabTabix <- function(url, region, headout, out, maxRetry=6){
+    #fix region if it has negative start. All tabix coordinates must be >0.
+    region1 = region
+    if(grepl(":-",region1)){
+        chrom = strsplit(region1,":")[[1]][1]
+        start = 1
+        end = strsplit(strsplit(region1,":")[[1]][2],"-")[[1]][3]
+        region=paste0(chrom,":",start,"-",end,sep="")
+        message(paste0("  grabTabix: region had negative start. Region: ",region1,". Replaced with 0-indexed region: ",region))
+    }
+
     #command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
     command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out)
     tryTimes = 0
@@ -240,8 +250,10 @@ get_probability_mass = function(dt,lbf_col,pos_col, start_pos,end_pos){
     }
     else{
         values = dt[get(pos_col)>=start_pos & get(pos_col)<=end_pos]
-
-        out=sum(exp(values[[lbf_col]]) /sum(exp(dt[[lbf_col]])))
+        max_lbf=max(dt[[lbf_col]])
+        #shift probability mass by maximum to not get overflows. They are all divided by the same number, so they will still have the same proportion of the sum.
+        #while this might lead to underflows, I think those are not as bad, since we are primarily interested in the (approximate) probability mass in the region, and values that would underflow will have negligible effect on that.
+        out=sum(exp(values[[lbf_col]]-max_lbf)) /sum(exp(dt[[lbf_col]]-max_lbf))
         if(is.na(out)){
             0.0
         }

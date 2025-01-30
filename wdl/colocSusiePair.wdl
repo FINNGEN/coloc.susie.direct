@@ -49,7 +49,7 @@ task coloc{
         memory: "4 GB"
         docker: "~{docker}"
         zones: "europe-west1-b"
-        disks: "local-disk 50 HDD"
+        disks: "local-disk 100 HDD"
         noAddress: true
     }
 
@@ -94,7 +94,7 @@ task mergeColoc{
         docker: "~{docker}"
         noAddress: true
         zones: "europe-west1-b"
-        disks: "local-disk 50 HDD"
+        disks: "local-disk 500 HDD"
         preemptible: 0
     }
 
