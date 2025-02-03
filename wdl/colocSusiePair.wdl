@@ -37,6 +37,8 @@ task coloc{
     }
 
     command <<<
+        #this is needed in the coloc.R command, since it has commands consisting of piped commands, which do not show correct return code without pipefail
+        set -o pipefail
         tar xvf ~{colocInfo}
         coloc.R pairs.tsv map1.txt map2.txt ~{nPerBatch} ~{block}
         #make sure variants are unique
