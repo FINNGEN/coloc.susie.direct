@@ -22,9 +22,14 @@ nPerBlock=as.numeric(args[4])
 # current running block
 block=as.numeric(args[5])
 
+# dataset id string
+dataset_id_string=strsplit(args[6],"-----")
+dataset_id_1 =dataset_id_string[[1]][1]
+dataset_id_2 =dataset_id_string[[1]][2]
+
 debug = FALSE
-if(length(args) >= 6){
-    debug = as.logical(args[6])
+if(length(args) >= 7){
+    debug = as.logical(args[7])
 }
 
 dt.list = fread(colocList, head=F)
@@ -51,8 +56,10 @@ if(start > end){
 
 output = paste0("region", block, ".sum.tsv")
 output.hits = paste0("region", block, ".hits.tsv")
-output.vars = paste0("region", block, ".variants.tsv")
-vars_append=F
+output.credsets = paste0("region", block, ".credsets.tsv")
+output.h4_vars = paste0("region", block, ".h4_variants.tsv")
+h4_vars_append=F
+credset_append=F
 message("Processing from ", start, " to ", end)
 
 dt.list = dt.list[start:end]
@@ -293,7 +300,7 @@ for(f1 in dt3.cur1$out1){
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
-    #saveRDS(dt1.use, file=paste0("dt1.rds"))
+
     #calculate cs-specific PIP for credible sets
     indices_1=unique(dt1.use[cs1>0]$cs1)
     for(idx in indices_1 ){
@@ -321,6 +328,7 @@ for(f1 in dt3.cur1$out1){
 
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
         dt2.use = dt2[, ..use_cols2]
+
         #calculate cs-specific PIP for credible sets
         indices_2=unique(dt2.use[cs2>0]$cs2)
         for(idx in indices_2){
@@ -412,6 +420,48 @@ for(f1 in dt3.cur1$out1){
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
+
+                #gather the credible sets.
+                source_1_cs_data = dt1.use[cs1 %in% cs1,]
+                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","cs_specific_prob")
+                cs1_output = list()
+                
+                for(c in unique(cs1)){
+                    pip_col = paste0("pip_calc1_",c)
+                    c_vars = source_1_cs_data[cs1 == c]
+                    for(opt_col in c("p1","beta1","se1")){
+                        if(!(opt_col %in% colnames(c_vars))){
+                            c_vars[,temp_col:=NA]
+                            setnames(c_vars,c("temp_col"),c(opt_col))
+                        }
+                    } 
+                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    cs1_output[[c]]=c_vars[,..out_cols]
+                }
+                #rename columns
+                # need trait, region,side,cs, pval,beta, se, cs_specific_prob(? need to pick that from the correct column) 
+                source_2_cs_data = dt2.use[cs2 %in% cs2,]
+                cs2_output = list()
+                for(c in unique(cs2)){
+                    pip_col = paste0("pip_calc2_",c)
+                    c_vars = source_2_cs_data[cs2 == c]
+                    for(opt_col in c("p2","beta2","se2")){
+                        if(!(opt_col %in% colnames(c_vars))){
+                            c_vars[,temp_col:=NA]
+                            setnames(c_vars,c("temp_col"),c(opt_col))
+                        }
+                    } 
+                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    cs2_output[[c]]=c_vars[,..out_cols]
+                }
+                source_1_data = rbindlist(cs1_output)
+                source_2_data = rbindlist(cs2_output)
+                source_1_data$dataset=dataset_id_1
+                source_2_data$dataset=dataset_id_2
+                cs_data = rbind(source_1_data,source_2_data)
+                fwrite(cs_data,output.credsets,sep="\t",append=credset_append,na="NA",quote=F)
+                credset_append=TRUE
+                
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
                     idx1 = dt.sum1.cur$cs1
@@ -463,9 +513,7 @@ for(f1 in dt3.cur1$out1){
                     dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
                     dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
 
-                    ## Gather variant information for credset variants and predicted top variants. Gather first variants that are common, then those that are not common in both datasets, and then rbind them.
-                    # common vars: cs vars, as well as hit vars
-                    # NOTE: in case there is only one cs, there is no row in the output name.
+                    #gather H4 tables
                     if(nrow(dt.sum1)==1){
                         h4_col="SNP.PP.H4.abf"
                     }
@@ -475,27 +523,17 @@ for(f1 in dt3.cur1$out1){
                     take_cols=c("snp",h4_col)
                     h4_pp_data = ret1$results[, ..take_cols]
                     setnames(h4_pp_data,c(h4_col),"SNP.PP.H4")
-                    h4_pp_data$row_idx=idx
-                    common_snps=rbind(dt3.cur,dt.hit1.1,dt.hit1.2,fill=T)
-                    
-                    common_vars = merge(common_snps, h4_pp_data, by.x="rsid", by.y="snp")
-                    # cs1 & cs2 data
-                    cs1_vars = dt1.use[cs1==idx1 & !(rsid %in% common_vars$rsid)]
-                    cs2_vars = dt2.use[cs2==idx2 & !(rsid %in% common_vars$rsid)]
-
-                    
-                    var_d = rbind(common_vars,cs1_vars,cs2_vars,fill=T)
-                    #drop previous pip1,pip2, to be replaced with calculated pips
-                    var_d = var_d[,!c("pip1","pip2")]
-                    setnames(var_d,c(paste0("pip_calc1_",idx1),paste0("pip_calc2_",idx2)),c("pip1","pip2"))
-                    if(!("p2" %in% colnames(var_d))){
-                        var_d$p2 = NA
-                    }
-                    var_cols = c("rsid","trait1","region1","trait2","region2","cs1","cs2","pip1","p1","beta1","pip2","p2","beta2","pp","pa","SNP.PP.H4")
-                    # write variants to variant file, this seems to take too much memory
-                    fwrite(var_d[,..var_cols],file=output.vars,sep="\t",na="NA",quote=F,append=vars_append)
-                    vars_append=T
-
+                    #columns for H4 table: rsid, SNP.PP.H4, dataset1, dataset2, trait1, trait2, region1, region2, cs1, <cs2
+                    h4_pp_data$dataset1 = dataset_id_1
+                    h4_pp_data$dataset2 = dataset_id_2
+                    h4_pp_data$trait1 = dt.sum1$trait1[idx]
+                    h4_pp_data$trait2 = dt.sum1$trait2[idx]
+                    h4_pp_data$region1 = dt.sum1$region1[idx]
+                    h4_pp_data$region2 = dt.sum1$region2[idx]
+                    h4_pp_data$cs1 = idx1
+                    h4_pp_data$cs2 = idx2
+                    fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F)
+                    h4_vars_append=TRUE
                 }
             }else{
                 message(" Invalid coloc results")
