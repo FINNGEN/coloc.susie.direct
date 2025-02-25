@@ -89,7 +89,7 @@ task mergeH4Tables{
         set -e
         #set gcloud auth 
         export GCS_AUTH_TOKEN="$(gcloud auth print-access-token)"
-        python3 filter_h4.py ~{colocInfo} ~{write_lines(h4_variant_tables)} "~{out_stub}" "~{out_stub}.h4.variants.tsv.gz"
+        filter_h4.py ~{colocInfo} ~{write_lines(h4_variant_tables)} "~{out_stub}" "~{out_stub}.h4.variants.tsv.gz"
     >>>
 
     runtime{
@@ -140,7 +140,7 @@ task mergeColoc{
 
         cat credsets.txt | gcloud storage cp -I credsets/
         find credsets/ -name "*.credsets.tsv" > cs_list
-        python3 mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
+        mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
         cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > temp_cs_2.gz
         mv temp_cs_2.gz "~{out_stub}.credset.tsv.gz"
     >>>
