@@ -143,6 +143,7 @@ task mergeColoc{
         mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
         cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > temp_cs_2.gz
         mv temp_cs_2.gz "~{out_stub}.credset.tsv.gz"
+        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(awk 'FNR>1' credsets/*.tsv|sort -T ./|uniq)|gzip >  ~{out_stub}.credsets.unfiltered.tsv.gz
     >>>
 
     runtime{
@@ -160,5 +161,6 @@ task mergeColoc{
         File hit = out_stub + ".hits.tsv.gz"
         File credset = out_stub+".credset.tsv.gz"
         File unfiltered = out_stub+".sum.unfiltered.tsv.gz"
+        File unfiltered_cs = out_stub+".credset.unfiltered.tsv.gz"
     }
 }

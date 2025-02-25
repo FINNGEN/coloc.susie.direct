@@ -57,8 +57,10 @@ with uopen(coloc_fname,"rt",encoding="utf-8") as f:
         trait2 = cols[hdi["trait2"]]
         region1 = cols[hdi["region1"]]
         region2 = cols[hdi["region2"]]
-        data_set.add((dataset1,trait1,region1))
-        data_set.add((dataset2,trait2,region2))
+        cs1 = cols[hdi["cs1"]]
+        cs2 = cols[hdi["cs2"]]
+        data_set.add((dataset1,trait1,region1,cs1))
+        data_set.add((dataset2,trait2,region2,cs2))
         
 wrote_header = False
 print(data_set)
@@ -70,17 +72,17 @@ with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
         print(f"{i+1}/{len(files)}: {fname}")
         with uopen(fname,"rt",encoding="utf-8") as in_f:
             header = in_f.readline()
-            new_header = "\t".join(["dataset1","dataset2",header])
             hdi = {a:i for i,a in enumerate(header.strip().split("\t"))}
             if not wrote_header:
-                out_f.write(new_header)
+                out_f.write(header)
                 wrote_header = True
             for line in in_f:
-                cols = line.strip().split()
+                cols = line.strip().split("\t")
                 dataset = str_or_none( cols[hdi["dataset"]])
                 trait = str_or_none( cols[hdi["trait"]])
                 region = str_or_none(cols[hdi["region"]])
-                if (dataset,trait,region) in data_set:
+                cs = str_or_none(cols[hdi["cs"]])
+                if (dataset,trait,region,cs) in data_set:
                     out_f.write("\t".join(cols)+"\n")
 print("Finished filtering")
 

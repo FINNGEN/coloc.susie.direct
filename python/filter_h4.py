@@ -64,7 +64,7 @@ dataset2 = ds_ids[1]
 
 data_set = set()
 
-@dataclass
+@dataclass(eq=True,frozen=True)
 class ColocID:
     dataset1:str
     dataset2:str
