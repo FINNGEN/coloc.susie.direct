@@ -31,7 +31,7 @@ workflow ColocSusieDirectMulti{
         }
     }
      
-    Array[File] allColoc = select_all(colocPair.coloc)
+    Array[File] allColoc = select_all(colocPair.sum)
     Array[File] allH4Table = select_all(colocPair.h4_variant)
     Array[File] allCredset = select_all(colocPair.credset)
     call mergeAllPair{
@@ -47,8 +47,9 @@ workflow ColocSusieDirectMulti{
         Array[Int] N = generatePair.N
         Array[File] filtered_coloc = allColoc
         Array[File] hit = select_all(colocPair.hit)
-        Array[File] unfiltered_coloc = select_all(colocPair.unfiltered)
-        #File colocVariants = mergeVariants.colocVariants
+        Array[File] unfiltered_coloc = select_all(colocPair.unfiltered_sum)
+        File colocCredsets = mergeVariants.colocCredsets
+        File colocH4 = mergeVariants.colocH4Tables
         File colocQC = mergeAllPair.colocQC
     } 
 }

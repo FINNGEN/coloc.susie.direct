@@ -532,6 +532,9 @@ for(f1 in dt3.cur1$out1){
                     h4_pp_data$region2 = dt.sum1$region2[idx]
                     h4_pp_data$cs1 = idx1
                     h4_pp_data$cs2 = idx2
+                    h4_cols = c("dataset1","dataset2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
+                    h4_pp_data = h4_pp_data[,.("dataset1","dataset2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")]
+                    setcolorder(h4_pp_data,h4_cols)
                     fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F)
                     h4_vars_append=TRUE
                 }
