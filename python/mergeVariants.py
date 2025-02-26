@@ -63,11 +63,10 @@ with uopen(coloc_fname,"rt",encoding="utf-8") as f:
         data_set.add((dataset2,trait2,region2,cs2))
         
 wrote_header = False
-print(data_set)
 
+with open(flist,"rt",encoding="utf-8") as filelistfile:
+    files = [a.strip() for a in filelistfile.readlines()]
 with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
-    with open(flist,"rt",encoding="utf-8") as filelistfile:
-        files = [a.strip() for a in filelistfile.readlines()]
     for i,fname in enumerate(files):
         print(f"{i+1}/{len(files)}: {fname}")
         with uopen(fname,"rt",encoding="utf-8") as in_f:

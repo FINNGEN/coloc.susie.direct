@@ -58,6 +58,8 @@ task coloc{
         #make sure credset vars are unique
         cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq) > vars2
         mv vars2 "region~{block}.credsets.tsv"
+        #these files are huge, so compress them before sending out
+        gzip "region~{block}.h4_variants.tsv"
     >>>
 
     runtime{
@@ -73,7 +75,7 @@ task coloc{
         File res = "region" + block + ".sum.tsv"
         File hits = "region" + block + ".hits.tsv"
         File credset_variants = "region" + block + ".credsets.tsv"
-        File h4_variants = "region" + block + ".h4_variants.tsv"
+        File h4_variants = "region" + block + ".h4_variants.tsv.gz"
     }
 }
 
@@ -84,7 +86,7 @@ task mergeH4Tables{
         Array[String] h4_variant_tables
         String docker
     }
-    String out_stub=basename(colocInfo,".pairs.tar.gz")
+    String out_stub=basename(colocInfo,".sum.tsv.gz")
     command <<<
         set -e
         #set gcloud auth 
@@ -143,7 +145,7 @@ task mergeColoc{
         mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
         cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > temp_cs_2.gz
         mv temp_cs_2.gz "~{out_stub}.credset.tsv.gz"
-        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(awk 'FNR>1' credsets/*.tsv|sort -T ./|uniq)|gzip >  ~{out_stub}.credsets.unfiltered.tsv.gz
+        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(awk 'FNR>1' credsets/*.tsv|sort -T ./|uniq)|gzip >  ~{out_stub}.credset.unfiltered.tsv.gz
     >>>
 
     runtime{

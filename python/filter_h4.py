@@ -38,16 +38,16 @@ def download_gcloud_file(fname,maxtries=6)->str:
     command = f"gcloud storage cp {fname} {out_fname}"
     current_try=1
     while True:
-        proc = subprocess.run(shlex.split(command))
+        proc = subprocess.run(shlex.split(command), capture_output=True,encoding="utf-8")
         if proc.returncode == 0:
             return out_fname
         if current_try>maxtries:
             raise Exception(f"Error downloading file {fname}. latest stderr: {proc.stderr}")
         print(f"Error in getting file, resetting access token and sleeping for 10 seconds. Stderr:{proc.stderr}")
         current_try+=1
-        proc2 = subprocess.run(shlex.split("gcloud auth print-access-token"))
+        proc2 = subprocess.run(shlex.split("gcloud auth print-access-token"), capture_output=True,encoding="utf-8")
         new_access_token=proc2.stdout.strip()
-        os.putenv("GCS_AUTH_TOKEN",new_access_token)
+        os.putenv("GCS_AUTH_TOKEN",new_access_token,encoding="utf-8")
         time.sleep(10)
 
 
@@ -97,6 +97,7 @@ with uopen(coloc_fname,"rt",encoding="utf-8") as f:
             cs1,
             cs2
         )
+        data_set.add(coloc_id)
 
 #load urilist into memory
 with open(h4_urilist,"r",encoding="utf-8") as f:
@@ -105,11 +106,15 @@ with open(h4_urilist,"r",encoding="utf-8") as f:
 ## For each URI, download the file, then filter the rows, and simultaneously write to gzipped file.
 with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
     wrote_header=False
+    total_lines = 0
+    total_lines_unfiltered = 0
     for uri in urilist:
         #download file
         print(f"Processing file {uri}")
         fname = download_gcloud_file(uri)
-        with open(fname,"r",encoding="utf-8") as in_f:
+        with uopen(fname,"rt",encoding="utf-8") as in_f:
+            filtered_lines = 0
+            unfiltered_lines = 0
             header = in_f.readline()
             hdi = {a:i for i,a in enumerate(header.strip().split("\t"))}
             if not wrote_header:
@@ -137,3 +142,10 @@ with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
                 )
                 if c_id in data_set:
                     out_f.write(l)
+                    filtered_lines +=1
+                unfiltered_lines +=1
+            print(f"wrote {filtered_lines} lines from file {uri}")
+            total_lines += filtered_lines
+            total_lines_unfiltered+=unfiltered_lines
+    print(f"wrote {total_lines} in total from {len(urilist)} files")
+    print(f"In total wrote {total_lines}/{total_lines_unfiltered} lines, filtering ratio {100*total_lines/total_lines_unfiltered:0.2g}%")
