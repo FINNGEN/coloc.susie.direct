@@ -159,12 +159,14 @@ url = dt3.cur1$URL1[1]
 headout = paste0("header1")
 
 curTry = 0
-while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'")) 
+while(!(syscall==0 | syscall == 141)){
     curTry = curTry + 1
     if(curTry >= 6){
         stop("can't get the header")
     }
     Sys.sleep(10)
+    syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'"))
 }
 
 preURL = ""
@@ -193,12 +195,14 @@ url = dt3.cur2$URL2[1]
 headout = paste0("header2")
 
 curTry = 0
-while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'")) 
+while(!(syscall==0 | syscall == 141)){
     curTry = curTry + 1
     if(curTry >= 6){
         stop("can't get the header")
     }
     Sys.sleep(10)
+    syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'"))
 }
 
 preURL = ""
