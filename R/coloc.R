@@ -57,7 +57,7 @@ if(start > end){
 output = paste0("region", block, ".sum.tsv")
 output.hits = paste0("region", block, ".hits.tsv")
 output.credsets = paste0("region", block, ".credsets.tsv")
-output.h4_vars = paste0("region", block, ".h4_variants.tsv")
+output.h4_vars = paste0("region", block, ".h4_variants.tsv.gz")
 h4_vars_append=F
 credset_append=F
 message("Processing from ", start, " to ", end)
@@ -538,7 +538,7 @@ for(f1 in dt3.cur1$out1){
                     h4_pp_data$cs2 = idx2
                     h4_cols = c("dataset1","dataset2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
                     setcolorder(h4_pp_data,h4_cols)
-                    fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F)
+                    fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F,compress="gzip")
                     h4_vars_append=TRUE
                 }
             }else{

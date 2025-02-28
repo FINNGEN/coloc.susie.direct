@@ -58,8 +58,6 @@ task coloc{
         #make sure credset vars are unique
         cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq) > vars2
         mv vars2 "region~{block}.credsets.tsv"
-        #these files are huge, so compress them before sending out
-        gzip "region~{block}.h4_variants.tsv"
     >>>
 
     runtime{
