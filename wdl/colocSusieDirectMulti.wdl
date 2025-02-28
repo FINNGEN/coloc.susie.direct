@@ -102,7 +102,7 @@ task mergeVariants{
 
     runtime{
         cpu: 2
-        memory: "4 GB"
+        memory: "6 GB"
         docker: "~{docker}"
         zones: "europe-west1-b europe-west1-c europe-west1-d"
         preemptible: 0

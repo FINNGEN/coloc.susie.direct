@@ -115,7 +115,7 @@ with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
         log(f"Downloading file {uri}")
         fname = download_gcloud_file(uri)
         log("File downloaded")
-        log("Processing file {uri}")
+        log(f"Processing file {uri}")
         with uopen(fname,"rt",encoding="utf-8") as in_f:
             filtered_lines = 0
             unfiltered_lines = 0
