@@ -7,7 +7,7 @@ Author: Arto Lehisto <arto.lehisto@helsinki.fi>
 
 import sys,os
 import gzip
-import shlex, subprocess, time
+import shlex, subprocess, time, datetime
 from dataclasses import dataclass
 
 from contextlib import contextmanager
@@ -32,6 +32,8 @@ def uopen(fname,oper_type,encoding="utf-8"):
     else:
         raise Exception("invalid file format")
 
+def log(msg):
+    print(f"{datetime.datetime.now()}: {msg}")
 
 def download_gcloud_file(fname,maxtries=6)->str:
     out_fname = "temporary_file_location"
@@ -43,7 +45,7 @@ def download_gcloud_file(fname,maxtries=6)->str:
             return out_fname
         if current_try>maxtries:
             raise Exception(f"Error downloading file {fname}. latest stderr: {proc.stderr}")
-        print(f"Error in getting file, resetting access token and sleeping for 10 seconds. Stderr:{proc.stderr}")
+        log(f"Error in getting file, resetting access token and sleeping for 10 seconds. Stderr:{proc.stderr}")
         current_try+=1
         proc2 = subprocess.run(shlex.split("gcloud auth print-access-token"), capture_output=True,encoding="utf-8")
         new_access_token=proc2.stdout.strip()
@@ -110,8 +112,10 @@ with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
     total_lines_unfiltered = 0
     for uri in urilist:
         #download file
-        print(f"Processing file {uri}")
+        log(f"Downloading file {uri}")
         fname = download_gcloud_file(uri)
+        log("File downloaded")
+        log("Processing file {uri}")
         with uopen(fname,"rt",encoding="utf-8") as in_f:
             filtered_lines = 0
             unfiltered_lines = 0
@@ -144,8 +148,8 @@ with gzip.open(output_fname,"wt",encoding="utf-8") as out_f:
                     out_f.write(l)
                     filtered_lines +=1
                 unfiltered_lines +=1
-            print(f"wrote {filtered_lines} lines from file {uri}")
+            log(f"wrote {filtered_lines} lines from file {uri}")
             total_lines += filtered_lines
             total_lines_unfiltered+=unfiltered_lines
-    print(f"wrote {total_lines} in total from {len(urilist)} files")
-    print(f"In total wrote {total_lines}/{total_lines_unfiltered} lines, filtering ratio {100*total_lines/total_lines_unfiltered:0.2g}%")
+    log(f"wrote {total_lines} in total from {len(urilist)} files")
+    log(f"In total wrote {total_lines}/{total_lines_unfiltered} lines, filtering ratio {100*total_lines/total_lines_unfiltered:0.2g}%")
