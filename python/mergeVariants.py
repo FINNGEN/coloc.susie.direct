@@ -19,7 +19,7 @@ def uopen(fname,oper_type,encoding="utf-8"):
     gz_magicnumber=b"\x1f\x8b"
     type="normal"
     with open(fname,"rb") as f:
-        if f.read()[0:2] == gz_magicnumber:
+        if f.read(2) == gz_magicnumber:
             type="gz"
     if type=="normal":
         with open(fname,oper_type,encoding=encoding) as f:

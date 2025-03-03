@@ -56,8 +56,7 @@ task coloc{
         #save 
         
         #make sure credset vars are unique
-        cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq) > vars2
-        mv vars2 "region~{block}.credsets.tsv"
+        cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq)|gzip > "region~{block}.credsets.tsv.gz"
     >>>
 
     runtime{
@@ -72,7 +71,7 @@ task coloc{
     output{
         File res = "region" + block + ".sum.tsv"
         File hits = "region" + block + ".hits.tsv"
-        File credset_variants = "region" + block + ".credsets.tsv"
+        File credset_variants = "region" + block + ".credsets.tsv.gz"
         File h4_variants = "region" + block + ".h4_variants.tsv.gz"
     }
 }
@@ -88,6 +87,8 @@ task mergeH4Tables{
     command <<<
         set -e
         #set gcloud auth 
+        date
+        echo "combining H4 tables"
         export GCS_AUTH_TOKEN="$(gcloud auth print-access-token)"
         filter_h4.py ~{colocInfo} ~{write_lines(h4_variant_tables)} "~{out_stub}" "~{out_stub}.h4.variants.tsv.gz"
     >>>
@@ -121,29 +122,33 @@ task mergeColoc{
     }
     String out_stub=basename(colocInfo,".pairs.tar.gz")
     command <<<
-        
         echo "~{sep='\n' colocs}" > sum.txt
         echo "~{sep='\n' hits}" > hits.txt
         echo "~{sep='\n' credsets}" > credsets.txt
 
         mkdir sums h4_variants hits credsets
-        
+        date
+        echo "combining sumstats"
         cat sum.txt | gcloud storage cp -I sums/
         find sums/ -name "*.sum.tsv" > sum_list
         filterSums.R sum_list ~{h4pp_thresh} ~{cs_log10bf_thresh} ~{probmass_threshold} "~{out_stub}.sum.tsv.gz"
         awk 'FNR>1 || NR==1' sums/*.tsv | gzip > ~{out_stub}.sum.unfiltered.tsv.gz
         rm sums/*.tsv
-
+        date 
+        echo "combining hit files"
         cat hits.txt | gcloud storage cp -I hits/
         awk 'FNR>1 || NR==1' hits/*.tsv | gzip > ~{out_stub}.hits.tsv.gz
         rm hits/*.tsv
 
+        date
+        echo "combining credset files"
         cat credsets.txt | gcloud storage cp -I credsets/
-        find credsets/ -name "*.credsets.tsv" > cs_list
+        find credsets/ -name "*.credsets.tsv.gz" > cs_list
         mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
-        cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > temp_cs_2.gz
-        mv temp_cs_2.gz "~{out_stub}.credset.tsv.gz"
-        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(awk 'FNR>1' credsets/*.tsv|sort -T ./|uniq)|gzip >  ~{out_stub}.credset.unfiltered.tsv.gz
+        cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > "~{out_stub}.credset.tsv.gz"
+        date 
+        echo "combining unfiltered credset files"
+        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(cat cs_list|xargs -I % bash -c 'zcat %|awk {FNR>1}')|sort -T ./|uniq|gzip >  ~{out_stub}.credset.unfiltered.tsv.gz
     >>>
 
     runtime{
