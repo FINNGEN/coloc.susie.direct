@@ -90,9 +90,9 @@ task mergeVariants{
     command <<<
         set -e
         # sort and unique the credsets
-        cat <(<zcat ~{credsets[0]}) <(cat ~{write_lines(credsets)}|xargs -I % bash -c "zcat % |tail -n+2" |sort -T ./|uniq)|gzip > coloc.credsets.tsv.gz
+        cat <(zcat ~{credsets[0]}|head -n1) <(cat ~{write_lines(credsets)}|xargs -I % bash -c "zcat % |tail -n+2" |sort -T ./|uniq)|gzip > coloc.credsets.tsv.gz
         # merge h4 tables
-        cat <(<zcat ~{h4_files[0]}) <(cat ~{write_lines(h4_files)}|xargs -I % bash -c "zcat % |tail -n+2" )|gzip > coloc.H4_tables.tsv.gz
+        cat <(zcat ~{h4_files[0]}|head -n1) <(cat ~{write_lines(h4_files)}|xargs -I % bash -c "zcat % |tail -n+2" )|gzip > coloc.H4_tables.tsv.gz
     >>>
 
     output{
