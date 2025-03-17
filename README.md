@@ -1,6 +1,31 @@
 # coloc.susie.direct
 Colocalization on Susie results from FinnGen fine-mapping pipeline. This repository hosted the code only.
 
+## Creating a new colocalization resource
+
+Use python/create_coloc_resource.py to create the Coloc.regions.txt file (requires python 3)
+How to:  
+- Download all susie credible set set summary files to a folder. E.g. `data`
+- make a list of all of those files. `find data/ -name "*.suffix" > filelist`
+- run the script: `python3 python3/create_coloc_resource.py filelist --out Coloc.regions.txt --url-suffix "SUSIE.snp.bgz" --url-stub "gs://resource-bucket/path/"`
+  - Use `--help` for more information about the script
+
+Then, create the Coloc.map.txt file for mapping the columns. The first column is the name of the column, and hte second one is the name of the column in your dataset. For example, this is for FinnGen data:
+```
+trait trait
+region region
+rsid rsid
+cs cs
+low_purity low_purity
+pip prob
+lbf_variable_prefix lbf_variable
+beta beta
+se se
+p p
+maf maf
+```
+Then, upload both of those files to a bucket (e.g. to the same folder where the full susie results are), and add an entry to the coloc info file.
+
 ## Inputs
 json
 * colocInfo1: coloc information for paired trait1, format: dataset name, dataset type, resource link
