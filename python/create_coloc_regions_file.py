@@ -17,6 +17,7 @@ with open(args.out,"wt",encoding="utf-8") as outf:
     total_regions = 0
     for csname in csfilelist:
         with gzip.open(csname,"rt",encoding="utf-8") as csf:
+            trait_regions = set()
             header = csf.readline().strip().split("\t")
             hdi = {a:i for i,a in enumerate(header)}
             for l in csf:
@@ -24,6 +25,9 @@ with open(args.out,"wt",encoding="utf-8") as outf:
                 endpoint=cols[hdi["trait"]]
                 url = os.path.join(args.url_stub,f"{endpoint}{args.url_suffix}")
                 region = cols[hdi["region"]]
-                outf.write(f"{url}\t{endpoint}\t{region}\n")
+                # Remove duplicate rows in case there are multiple credsets in a region
+                if (endpoint, region) not in trait_regions:
+                    outf.write(f"{url}\t{endpoint}\t{region}\n")
+                    trait_regions.add((endpoint,region))
                 total_regions +=1
     print(f"{len(csfilelist)} files with {total_regions} regions processed to file {args.out}")

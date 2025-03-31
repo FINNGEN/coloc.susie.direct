@@ -47,10 +47,6 @@ dt.sig = rbindlist(dts)
 rm(dts)
 
 
-##NOTE: this probably should not care about cs number, it's not necessarily the first 
-
-
-
 dt.qc = dt.sig[cs1_log10bf >= cs_log10bf_thresh & cs2_log10bf >= cs_log10bf_thresh]
 
 setcolorder(dt.qc, c("dataset1", "dataset2"))

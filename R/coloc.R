@@ -122,7 +122,7 @@ grabTabix <- function(url, region, headout, out, maxRetry=6){
         start = 1
         end = strsplit(strsplit(region1,":")[[1]][2],"-")[[1]][3]
         region=paste0(chrom,":",start,"-",end,sep="")
-        message(paste0("  grabTabix: region had negative start. Region: ",region1,". Replaced with 0-indexed region: ",region))
+        message(paste0("  grabTabix: region had negative start. Region: ",region1,". Replaced with region starting from 1: ",region))
     }
 
     #command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
