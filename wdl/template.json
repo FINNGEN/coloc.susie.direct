@@ -8,5 +8,5 @@
     "ColocSusieDirectMulti.excludeSameNameTrait": true,
     "ColocSusieDirectMulti.h4pp_thresh": 0.5,
     "ColocSusieDirectMulti.cs_log10bf_thresh": 0.9,
-    "ColocSusieDirectMulti.probmass_threshold": 0.9
+    "ColocSusieDirectMulti.probmass_threshold": 0.0
 }

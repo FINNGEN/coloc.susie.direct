@@ -29,6 +29,7 @@ workflow ColocPair{
         File hit = mergeColoc.hit
         File h4_variant = mergeH4Tables.h4_variant
         File credset = mergeColoc.credset
+        Array[File] unfiltered_credsets = coloc.credset_variants
     }
 
     meta{

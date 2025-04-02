@@ -47,10 +47,11 @@ workflow ColocSusieDirectMulti{
         Array[Int] N = generatePair.N
         Array[File] filtered_coloc = allColoc
         Array[File] hit = select_all(colocPair.hit)
-        Array[File] unfiltered_coloc = select_all(colocPair.unfiltered_sum)
+        Array[File] unfilteredColoc = select_all(colocPair.unfiltered_sum)
         File colocCredsets = mergeVariants.colocCredsets
         File colocH4 = mergeVariants.colocH4Tables
         File colocQC = mergeAllPair.colocQC
+        Array[File] unfilteredCredsets = flatten(select_all(colocPair.unfiltered_credsets))
     } 
 }
 
