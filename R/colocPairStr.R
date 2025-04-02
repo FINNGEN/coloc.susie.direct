@@ -101,8 +101,9 @@ processInfo <- function(infostr, side){
 infos1 = processInfo(info1, 1)
 infos2 = processInfo(info2, 2)
 
-dt1 = infos1[["region"]]
-dt2 = infos2[["region"]]
+
+dt1 = unique(infos1[["region"]])
+dt2 = unique(infos2[["region"]])
 
 message(nrow(dt1), " regions in coloc1")
 message(nrow(dt2), " regions in coloc2")

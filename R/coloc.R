@@ -22,9 +22,14 @@ nPerBlock=as.numeric(args[4])
 # current running block
 block=as.numeric(args[5])
 
+# dataset id string
+dataset_id_string=strsplit(args[6],"-----")
+dataset_id_1 =dataset_id_string[[1]][1]
+dataset_id_2 =dataset_id_string[[1]][2]
+
 debug = FALSE
-if(length(args) >= 6){
-    debug = as.logical(args[6])
+if(length(args) >= 7){
+    debug = as.logical(args[7])
 }
 
 dt.list = fread(colocList, head=F)
@@ -51,6 +56,10 @@ if(start > end){
 
 output = paste0("region", block, ".sum.tsv")
 output.hits = paste0("region", block, ".hits.tsv")
+output.credsets = paste0("region", block, ".credsets.tsv")
+output.h4_vars = paste0("region", block, ".h4_variants.tsv.gz")
+h4_vars_append=F
+credset_append=F
 message("Processing from ", start, " to ", end)
 
 dt.list = dt.list[start:end]
@@ -106,6 +115,16 @@ grabRegion <- function(url, region, headout, out, maxRetry=5){
 }
 
 grabTabix <- function(url, region, headout, out, maxRetry=6){
+    #fix region if it has negative start. All tabix coordinates must be >0.
+    region1 = region
+    if(grepl(":-",region1)){
+        chrom = strsplit(region1,":")[[1]][1]
+        start = 1
+        end = strsplit(strsplit(region1,":")[[1]][2],"-")[[1]][3]
+        region=paste0(chrom,":",start,"-",end,sep="")
+        message(paste0("  grabTabix: region had negative start. Region: ",region1,". Replaced with region starting from 1: ",region))
+    }
+
     #command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out, " && gzip ", out)
     command = paste0("cp ", headout, " ", out, " && tabix ", url, " ", region, " >> ", out)
     tryTimes = 0
@@ -140,12 +159,14 @@ url = dt3.cur1$URL1[1]
 headout = paste0("header1")
 
 curTry = 0
-while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'")) 
+while(!(syscall==0 | syscall == 141)){
     curTry = curTry + 1
     if(curTry >= 6){
         stop("can't get the header")
     }
     Sys.sleep(10)
+    syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'"))
 }
 
 preURL = ""
@@ -174,12 +195,14 @@ url = dt3.cur2$URL2[1]
 headout = paste0("header2")
 
 curTry = 0
-while(system(paste0("gsutil cat ", url, " | zcat | head -n 1 > ", headout)) != 0){
+syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'")) 
+while(!(syscall==0 | syscall == 141)){
     curTry = curTry + 1
     if(curTry >= 6){
         stop("can't get the header")
     }
     Sys.sleep(10)
+    syscall =system(paste0("bash -c 'set -o pipefail;gsutil cat ", url, " | zcat | head -n1 > ", headout,"'"))
 }
 
 preURL = ""
@@ -230,6 +253,33 @@ get_cs_lbf = function(dt, cs){
     ret
 }
 
+get_probability_mass = function(dt,lbf_col,pos_col, start_pos,end_pos){
+    ## Get probability mass of range between start_pos and end_pos
+    ## In case positions do not match directly, get the set of variants strictly inside the range
+    if((start_pos>max(dt[[pos_col]])) | (end_pos<min(dt[[pos_col]])) | (end_pos<start_pos)){
+        0.0
+    }
+    else{
+        values = dt[get(pos_col)>=start_pos & get(pos_col)<=end_pos]
+        max_lbf=max(dt[[lbf_col]])
+        #shift probability mass by maximum to not get overflows. They are all divided by the same number, so they will still have the same proportion of the sum.
+        #while this might lead to underflows, I think those are not as bad, since we are primarily interested in the (approximate) probability mass in the region, and values that would underflow will have negligible effect on that.
+        out=sum(exp(values[[lbf_col]]-max_lbf)) /sum(exp(dt[[lbf_col]]-max_lbf))
+        if(is.na(out)){
+            0.0
+        }
+        else{
+            out
+        }
+    }
+}
+
+lbf_to_alpha <- function(dt,lbf_variable){
+  max_lbf = max(dt[[lbf_variable]],na.rm=T)
+  shifted_lbf = dt[[lbf_variable]]-max_lbf
+  exp(shifted_lbf)/sum(exp(shifted_lbf),na.rm=T)
+}
+
 message("\nColoc...")
 dts = list()
 dts.hits = list()
@@ -254,8 +304,13 @@ for(f1 in dt3.cur1$out1){
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
-    #saveRDS(dt1.use, file=paste0("dt1.rds"))
 
+    #calculate cs-specific PIP for credible sets
+    indices_1=unique(dt1.use[cs1>0]$cs1)
+    for(idx in indices_1 ){
+        dt1.use[,temp_alpha:=lbf_to_alpha(dt1.use,paste0("lbf1_",idx))]
+        setnames(dt1.use,c("temp_alpha"),c(paste0("pip_calc1_",idx)))
+    }
 
     for(idx.f2 in 1:nrow(dt.list.cur)){
         f2 = dt.list.cur$out2[idx.f2]
@@ -277,6 +332,14 @@ for(f1 in dt3.cur1$out1){
 
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
         dt2.use = dt2[, ..use_cols2]
+
+        #calculate cs-specific PIP for credible sets
+        indices_2=unique(dt2.use[cs2>0]$cs2)
+        for(idx in indices_2){
+            dt2.use[,temp_alpha:=lbf_to_alpha(dt2.use,paste0("lbf2_",idx))]
+            setnames(dt2.use,c("temp_alpha"),c(paste0("pip_calc2_",idx)))
+        }
+
         dt3 = merge(dt1.use, dt2.use, by=c("rsid"))
         n_dt3 = nrow(dt3)
         message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
@@ -354,21 +417,63 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1[, cs2_size:=NA_integer_]
                 dt.sum1[, cs_overlap:=NA_integer_]
                 dt.sum1[, topInOverlap:=NA_character_]
+                dt.sum1[, probmass_1:=NA_character_]
+                dt.sum1[, probmass_2:=NA_character_]
                 dt.sum1[, hit1_info:=NA_character_]
                 dt.sum1[, hit2_info:=NA_character_]
-
-                dt3[, pp:=pip1*pip2]
-                dt3[, pa:=pmin(pip1, pip2)]
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
 
+                #gather the credible sets.
+                source_1_cs_data = dt1.use[cs1 %in% cs1,]
+                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","cs_specific_prob")
+                cs1_output = list()
+                
+                for(c in unique(cs1)){
+                    pip_col = paste0("pip_calc1_",c)
+                    c_vars = source_1_cs_data[cs1 == c]
+                    for(opt_col in c("p1","beta1","se1")){
+                        if(!(opt_col %in% colnames(c_vars))){
+                            c_vars[,temp_col:=NA]
+                            setnames(c_vars,c("temp_col"),c(opt_col))
+                        }
+                    } 
+                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    cs1_output[[c]]=c_vars[,..out_cols]
+                }
+                #rename columns
+                # need trait, region,side,cs, pval,beta, se, cs_specific_prob(? need to pick that from the correct column) 
+                source_2_cs_data = dt2.use[cs2 %in% cs2,]
+                cs2_output = list()
+                for(c in unique(cs2)){
+                    pip_col = paste0("pip_calc2_",c)
+                    c_vars = source_2_cs_data[cs2 == c]
+                    for(opt_col in c("p2","beta2","se2")){
+                        if(!(opt_col %in% colnames(c_vars))){
+                            c_vars[,temp_col:=NA]
+                            setnames(c_vars,c("temp_col"),c(opt_col))
+                        }
+                    } 
+                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    cs2_output[[c]]=c_vars[,..out_cols]
+                }
+                source_1_data = rbindlist(cs1_output)
+                source_2_data = rbindlist(cs2_output)
+                source_1_data$dataset=dataset_id_1
+                source_2_data$dataset=dataset_id_2
+                cs_data = rbind(source_1_data,source_2_data)
+                fwrite(cs_data,output.credsets,sep="\t",append=credset_append,na="NA",quote=F)
+                credset_append=TRUE
+                
                 for(idx in 1:nrow(dt.sum1)){
                     dt.sum1.cur = dt.sum1[idx]
                     idx1 = dt.sum1.cur$cs1
                     idx2 = dt.sum1.cur$cs2
                     dt3.cur = dt3[cs1==idx1 & cs2==idx2]
-
+                    #Note: need to set alphas for the common variant set
+                    dt3.cur[, pp:=get(paste0("pip_calc1_",idx1))*get(paste0("pip_calc2_",idx2))]
+                    dt3.cur[, pa:=pmin(get(paste0("pip_calc1_",idx1)),get(paste0("pip_calc2_",idx2)))]
                     dt.sum1$cs1_size[idx] = nrow(dt1[cs1==idx1])
                     dt.sum1$cs2_size[idx] = nrow(dt2[cs2==idx2])
                     dt.sum1$cs_overlap[idx] = nrow(dt3.cur)
@@ -400,11 +505,41 @@ for(f1 in dt3.cur1$out1){
                         inRegion2 = 1
                     }
 
+                    # calculate probability mass that is in shared region
+                    probmass_in_shared_1 = get_probability_mass(dt1,var1,"position",pos_min_com,pos_max_com)
+                    probmass_in_shared_2 = get_probability_mass(dt2,var2,"position",pos_min_com,pos_max_com)
+                    
+                    dt.sum1$probmass_1[idx] = probmass_in_shared_1
+                    dt.sum1$probmass_2[idx] = probmass_in_shared_2
                     dt.sum1$topInOverlap[idx] = paste0(inRegion1, ",", inRegion2)
                     dt.hit1.1 = dt.hit1[rsid == dt.sum1$hit1[idx]]
                     dt.sum1$hit1_info[idx] = paste0(c(dt.hit1.1$beta1, dt.hit1.1$p1), collapse=",")
                     dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
                     dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
+
+                    #gather H4 tables
+                    if(nrow(dt.sum1)==1){
+                        h4_col="SNP.PP.H4.abf"
+                    }
+                    else{
+                        h4_col = paste0("SNP.PP.H4.row",as.character(idx))
+                    }
+                    take_cols=c("snp",h4_col)
+                    h4_pp_data = ret1$results[, ..take_cols]
+                    setnames(h4_pp_data,c(h4_col),"SNP.PP.H4")
+                    #columns for H4 table: rsid, SNP.PP.H4, dataset1, dataset2, trait1, trait2, region1, region2, cs1, <cs2
+                    h4_pp_data$dataset1 = dataset_id_1
+                    h4_pp_data$dataset2 = dataset_id_2
+                    h4_pp_data$trait1 = dt.sum1$trait1[idx]
+                    h4_pp_data$trait2 = dt.sum1$trait2[idx]
+                    h4_pp_data$region1 = dt.sum1$region1[idx]
+                    h4_pp_data$region2 = dt.sum1$region2[idx]
+                    h4_pp_data$cs1 = idx1
+                    h4_pp_data$cs2 = idx2
+                    h4_cols = c("dataset1","dataset2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
+                    setcolorder(h4_pp_data,h4_cols)
+                    fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F,compress="gzip")
+                    h4_vars_append=TRUE
                 }
             }else{
                 message(" Invalid coloc results")
@@ -423,4 +558,5 @@ if(nrow(dt.coloc) != 0){
 }
 fwrite(dt.coloc, file=output, sep="\t", na="NA", quote=F)
 fwrite(dt.hits, file=output.hits, sep="\t", na="NA",quote=F)
+
 message("Done")
