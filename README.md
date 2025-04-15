@@ -47,12 +47,12 @@ json
 * unfilteredColoc: Array of File, containing the unfiltered colocalization summaries for each colocalization between data sources in colocInfo1 and data sources in colocInfo2. 
 * colocCredsets: File, contains all of the credible set variants included in the filtered colocalizations.
 * colocH4: File, contains all of the posterior probabilities for each variant for each colocalization in the filtered colocalizations.
-* colocQC: File, filtered and merged coloc results from all datasets
+* colocQC: File, filtered and merged coloc result summaries from all datasets
 * unfilteredCredsets: Array of File, this contains all of the individual (per-block, so Nblocks*Nsources files) 
 
 ### Release data
 For data releases, it is important to save at least the following to long-term storage:
-- colocQC, which is the most important.
+- colocQC, which is the most important result, i.e. the filtered summary file.
 - colocCredsets, which contains the credible set variants and is used in pheweb.
 - unfilteredColoc. This contains the unfiltered colocalizations, so we can then find out what a colocalization that did not pass filtering looked like.
 - unfiltered credible set files. This is not strictly necessary, as those credible set variants are available in both source 1 and source 2 data, but it is cumbersome to extract those after the fact.
