@@ -34,8 +34,8 @@ coloc_fname = sys.argv[1]
 flist = sys.argv[2]
 dataset_ids = sys.argv[3]
 ds_ids = dataset_ids.split("-----")
-dataset1 = ds_ids[0]
-dataset2 = ds_ids[1]
+dataset1 = ds_ids[0].split("--")[0]
+dataset2 = ds_ids[1].split("--")[0]
 
 
 output_fname = sys.argv[4]

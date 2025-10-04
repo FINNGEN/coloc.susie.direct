@@ -24,8 +24,8 @@ block=as.numeric(args[5])
 
 # dataset id string
 dataset_id_string=strsplit(args[6],"-----")
-dataset_id_1 =dataset_id_string[[1]][1]
-dataset_id_2 =dataset_id_string[[1]][2]
+dataset_id_1 =strsplit(dataset_id_string[[1]][1],"--")[[1]][1]
+dataset_id_2 =strsplit(dataset_id_string[[1]][2],"--")[[1]][1]
 
 debug = FALSE
 if(length(args) >= 7){
@@ -36,7 +36,7 @@ dt.list = fread(colocList, head=F)
 dt.map1 = fread(map1, head=F)
 dt.map2 = fread(map2, head=F)
 
-setnames(dt.list, c("URL1", "trait1", "region1", "URL2", "trait2", "region2"))
+setnames(dt.list, c("URL1", "trait1", "region1", "dataset1", "URL2", "trait2", "region2", "dataset2"))
 
 nList = nrow(dt.list)
 message(nList, " in list")
@@ -65,8 +65,8 @@ message("Processing from ", start, " to ", end)
 dt.list = dt.list[start:end]
 nList = nrow(dt.list)
 
-dt.list[, out1:=paste0(trait1, "---", gsub(":", ".", region1), ".txt")]
-dt.list[, out2:=paste0(trait2, "---", gsub(":", ".", region2), ".txt")]
+dt.list[, out1:=paste0(dataset1, "---", trait1, "---", gsub(":", ".", region1), ".txt")]
+dt.list[, out2:=paste0(dataset2, "---", trait2, "---", gsub(":", ".", region2), ".txt")]
 
 ##################
 # extract geno
@@ -289,6 +289,8 @@ lbf2 = dt.map2[V1=="lbf_variable_prefix"]$V2
 for(f1 in dt3.cur1$out1){
     # prepare the first one
     dt.list.cur = dt.list[out1==f1]
+    dataset1.cur = dt.list.cur$dataset1[1]
+    trait1.cur = dt.list.cur$trait1[1]
     region1.cur = dt.list.cur$region1[1]
 
     dt1 = fread(paste0(f1))
@@ -300,7 +302,7 @@ for(f1 in dt3.cur1$out1){
     dt.map1.use[!V1 %in% c("rsid"), V1:=paste0(V1, "1")]
     setnames(dt1, dt.map1.use$V2, dt.map1.use$V1)
     dt1[, rsid:=gsub("chr23", "chrX", rsid)]
-    dt1 = dt1[region1 == region1.cur]
+    dt1 = dt1[region1 == region1.cur & trait1 == trait1.cur]
 
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
@@ -314,6 +316,8 @@ for(f1 in dt3.cur1$out1){
 
     for(idx.f2 in 1:nrow(dt.list.cur)){
         f2 = dt.list.cur$out2[idx.f2]
+        dataset2.cur = dt.list.cur$dataset2[idx.f2]
+        trait2.cur = dt.list.cur$trait2[idx.f2]
         region2.cur = dt.list.cur$region2[idx.f2]
         nProcess = nProcess + 1
         message("======", nProcess, "/", nList, ": ", f1, ", ", f2)
@@ -328,7 +332,7 @@ for(f1 in dt3.cur1$out1){
         dt.map2.use[!V1 %in% c("rsid"), V1:=paste0(V1, "2")]
         setnames(dt2, dt.map2.use$V2, dt.map2.use$V1)
         dt2[, rsid:=gsub("chr23", "chrX", rsid)]
-        dt2 = dt2[region2==region2.cur]
+        dt2 = dt2[region2==region2.cur & trait2==trait2.cur]
 
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
         dt2.use = dt2[, ..use_cols2]
@@ -389,10 +393,12 @@ for(f1 in dt3.cur1$out1){
                 dt.sum[, idx2:=cs2[idx2]]
 
                 dt.sum1 = merge(merge(dt.sum, dt3.1, by.x="idx1", by.y="cs1"), dt3.2, by.x="idx2", by.y="cs2")
-                dt.sum1$trait1 = dt3[1]$trait1
-                dt.sum1$trait2 = dt3[1]$trait2
-                dt.sum1$region1 = dt3[1]$region1
-                dt.sum1$region2 = dt3[1]$region2
+                dt.sum1$dataset1 = dataset1.cur
+                dt.sum1$dataset2 = dataset2.cur
+                dt.sum1$trait1 = trait1.cur
+                dt.sum1$trait2 = trait2.cur
+                dt.sum1$region1 = region1.cur
+                dt.sum1$region2 = region2.cur
                 dt.sum1$nsnps1 = nrow(dt1)
                 dt.sum1$nsnps2 = nrow(dt2)
                 setnames(dt.sum1, c("idx1", "idx2"), c("cs1", "cs2"))
@@ -554,7 +560,7 @@ for(f1 in dt3.cur1$out1){
 dt.coloc = rbindlist(dts)
 dt.hits = rbindlist(dts.hits, fill=TRUE)
 if(nrow(dt.coloc) != 0){
-    setcolorder(dt.coloc, c("trait1", "trait2", "region1", "region2", "cs1", "cs2"))
+    setcolorder(dt.coloc, c("dataset1", "dataset2", "trait1", "trait2", "region1", "region2", "cs1", "cs2"))
 }
 fwrite(dt.coloc, file=output, sep="\t", na="NA", quote=F)
 fwrite(dt.hits, file=output.hits, sep="\t", na="NA",quote=F)
