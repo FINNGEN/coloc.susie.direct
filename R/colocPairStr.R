@@ -11,9 +11,9 @@ require(stringi)
 
 args = commandArgs(TRUE)
 # region information for finemap set 1
-info1 = args[1]
+info1_file = args[1]
 # region information for finemap set 2
-info2 = args[2]
+info2_file = args[2]
 # exclude same name trait
 bExclude = as.logical(args[3])
 
@@ -97,37 +97,47 @@ processInfo <- function(infostr, side){
     ret[["name"]] = name
     return(ret)
 }
+# TODO: read in both files, then do each pair. Write each pair to its own file. keep these files in a folder, which is then globbed.
+lines_1 = readLines(info1_file)
+lines_2 = readLines(info2_file)
+for(info1 in lines_1){
+    infos1 = processInfo(info1, 1)
+    dt1 = unique(infos1[["region"]])
+    for(info2 in lines_2){
+        
+        infos2 = processInfo(info2, 2)
+        dt2 = unique(infos2[["region"]])
 
-infos1 = processInfo(info1, 1)
-infos2 = processInfo(info2, 2)
+        message(nrow(dt1), " regions in coloc1")
+        message(nrow(dt2), " regions in coloc2")
+
+        out = "pairs.tsv"
+        cat(c(info1, info2), file="coloc.info", sep="\n")
+        tar_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".pairs.tar.gz")
+        n_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".N.count")
+
+        dt3 = dt1[dt2, .(URL, trait, region, i.URL, i.trait, i.region), on=.(CHR, start <= end2, end >= start2), nomatch=0]
 
 
-dt1 = unique(infos1[["region"]])
-dt2 = unique(infos2[["region"]])
+        setnames(dt3, c("URL", "i.URL"), c("URL1", "URL2"))
+        setnames(dt3, c("trait", "i.trait"), c("trait1", "trait2"))
+        setnames(dt3, c("region", "i.region"), c("region1", "region2"))
 
-message(nrow(dt1), " regions in coloc1")
-message(nrow(dt2), " regions in coloc2")
-
-out = "pairs.tsv"
-cat(c(info1, info2), file="coloc.info", sep="\n")
-tar_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".pairs.tar.gz")
-
-dt3 = dt1[dt2, .(URL, trait, region, i.URL, i.trait, i.region), on=.(CHR, start <= end2, end >= start2), nomatch=0]
-
-
-setnames(dt3, c("URL", "i.URL"), c("URL1", "URL2"))
-setnames(dt3, c("trait", "i.trait"), c("trait1", "trait2"))
-setnames(dt3, c("region", "i.region"), c("region1", "region2"))
-
-dt3.ord = dt3[order(trait1, region1, trait2, region2)]
-message(nrow(dt3.ord), " total pairs have overlapped region.")
-if(bExclude){
-    dt3.ord = dt3.ord[trait1 != trait2]
-    message(nrow(dt3.ord), " pairs after removing traits with the same name")
+        dt3.ord = dt3[order(trait1, region1, trait2, region2)]
+        message(nrow(dt3.ord), " total pairs have overlapped region.")
+        if(bExclude){
+            dt3.ord = dt3.ord[trait1 != trait2]
+            message(nrow(dt3.ord), " pairs after removing traits with the same name")
+        }
+        fwrite(dt3.ord, file=out, sep="\t", col.names=F, na=NA)
+        
+        cat(nrow(dt3.ord), file=n_name, sep="\n")
+        system(paste0("tar zcvf ", tar_name, " pairs.tsv map1.txt map2.txt coloc.info"))
+    }
 }
-fwrite(dt3.ord, file=out, sep="\t", col.names=F, na=NA)
-cat(nrow(dt3.ord), file="N.count", sep="\n")
 
-system(paste0("tar zcvf ", tar_name, " pairs.tsv map1.txt map2.txt coloc.info"))
+
+
+
 
 message("Done")
