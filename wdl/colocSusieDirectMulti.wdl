@@ -14,20 +14,15 @@ workflow ColocSusieDirectMulti{
         Float probmass_threshold = 0.9
         String docker = "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
     }
-
-    Array[String] coloc1 = read_lines(colocInfo1)
-    Array[String] coloc2 = read_lines(colocInfo2)
-
-    Array[Pair[String, String]] allPair = cross(coloc1, coloc2)
     call generatePair{
-            input: coloc1=coloc1, coloc2=coloc2, excludeSameNameTrait=excludeSameNameTrait, docker=docker
+            input: coloc1=colocInfo1, coloc2=colocInfo2, excludeSameNameTrait=excludeSameNameTrait, docker=docker
     }
     call sort_lists{
-        input: cloud_tar_names = generatePair.pairs,cloud_n_names=generatePair.N,tar_suffix=".pairs.tar.gz",n_suffix=".N.count"
+        input: cloud_tar_names = generatePair.pairs,cloud_n_names=generatePair.N,tar_suffix=".pairs.tar.gz",n_suffix=".N.count",docker=docker
     }
-    scatter(idx in range(sort_lists.tar_in_order)){
+    scatter(idx in range(length(sort_lists.tar_in_order))){
         Int N_int = read_int(sort_lists.count_in_order[idx])
-        if(N_int > 0 and false){
+        if(N_int > 0 && false){
             call coloc_sub.ColocPair as colocPair {
                 input: info=sort_lists.tar_in_order[idx], N=N_int, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold
             }
@@ -75,13 +70,13 @@ task generatePair{
         memory: "4 GB"
         docker: "~{docker}"
         zones: "europe-west1-b"
-        disks: "local-disk 10 HDD"
+        disks: "local-disk 50 HDD"
     }
 
     output{
         #TODO: Do the outputs file in the R file.
         Array[File] pairs = glob("*.pairs.tar.gz")
-        Array[Int] N = glob("*.N.count")
+        Array[File] N = glob("*.N.count")
     }
 }
 
@@ -123,7 +118,7 @@ task sort_lists{
         with open("count_in_order","w",encoding="utf-8") as of:
             for v in counts_in_order:
                 of.write(f"{v}\n")
-        __EOF___
+        __EOF__
         python3 data_in_order.py
     >>>
 
