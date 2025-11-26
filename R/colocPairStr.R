@@ -132,7 +132,8 @@ for(info1 in lines_1){
         fwrite(dt3.ord, file=out, sep="\t", col.names=F, na=NA)
         
         cat(nrow(dt3.ord), file=n_name, sep="\n")
-        system(paste0("tar zcvf ", tar_name, " pairs.tsv map1.txt map2.txt coloc.info"))
+        #tar and gzip options to remove all non-reproducible values
+        system(paste0("tar --format=gnu  --sort=name --numeric-owner --owner=0 --group=0 --mode='go-rwx,u-rw' --mtime='1970-01-01' --no-recursion --null cf -  pairs.tsv map1.txt map2.txt coloc.info|gzip --no-name --best > ",tar_name))
     }
 }
 

@@ -22,7 +22,7 @@ workflow ColocSusieDirectMulti{
     }
     scatter(idx in range(length(sort_lists.tar_in_order))){
         Int N_int = read_int(sort_lists.count_in_order[idx])
-        if(N_int > 0 && false){
+        if(N_int > 0){
             call coloc_sub.ColocPair as colocPair {
                 input: info=sort_lists.tar_in_order[idx], N=N_int, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold
             }
