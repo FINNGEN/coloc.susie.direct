@@ -16,7 +16,7 @@ workflow ColocPair{
        call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk, docker=docker}
     }
 
-    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, credsets=coloc.credset_variants, colocInfo=info, docker=docker,
+    call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, credsets=coloc.credset_variants, out_stub=basename(info,".pairs.tar.gz"), docker=docker,
         h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold}
 
     call mergeH4Tables{
@@ -115,13 +115,12 @@ task mergeColoc{
         Array[String] colocs
         Array[String] hits
         Array[String] credsets
-        String colocInfo
+        String out_stub
         String docker
         Float h4pp_thresh
         Float cs_log10bf_thresh
         Float probmass_threshold
     }
-    String out_stub=basename(colocInfo,".pairs.tar.gz")
     command <<<
         echo "~{sep='\n' colocs}" > sum.txt
         echo "~{sep='\n' hits}" > hits.txt
