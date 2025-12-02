@@ -14,17 +14,18 @@ workflow ColocSusieDirectMulti{
         Float probmass_threshold = 0.9
         String docker = "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
     }
+    String zone = "europe-west1-b europe-west1-c europe-west1-d"
     call generatePair{
-            input: coloc1=colocInfo1, coloc2=colocInfo2, excludeSameNameTrait=excludeSameNameTrait, docker=docker
+            input: coloc1=colocInfo1, coloc2=colocInfo2, excludeSameNameTrait=excludeSameNameTrait, docker=docker,zone=zone
     }
     call sort_lists{
-        input: cloud_tar_names = generatePair.pairs,cloud_n_names=generatePair.N,tar_suffix=".pairs.tar.gz",n_suffix=".N.count",docker=docker
+        input: cloud_tar_names = generatePair.pairs,cloud_n_names=generatePair.N,tar_suffix=".pairs.tar.gz",n_suffix=".N.count",docker=docker,zone=zone
     }
     scatter(idx in range(length(sort_lists.tar_in_order))){
         Int N_int = read_int(sort_lists.count_in_order[idx])
         if(N_int > 0){
             call coloc_sub.ColocPair as colocPair {
-                input: info=sort_lists.tar_in_order[idx], N=N_int, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold
+                input: info=sort_lists.tar_in_order[idx], N=N_int, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold,zone=zone
             }
         }
     }
@@ -33,11 +34,11 @@ workflow ColocSusieDirectMulti{
     Array[File] allH4Table = select_all(colocPair.h4_variant)
     Array[File] allCredset = select_all(colocPair.credset)
     call mergeAllPair{
-        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh=cs_log10bf_thresh, docker=docker,probmass_threshold=probmass_threshold
+        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh=cs_log10bf_thresh, docker=docker,probmass_threshold=probmass_threshold,zone=zone
     }
 
     call mergeVariants{
-        input: h4_files = allH4Table, credsets=allCredset,docker=docker
+        input: h4_files = allH4Table, credsets=allCredset,docker=docker,zone=zone
     }
 
     output{
@@ -59,6 +60,7 @@ task generatePair{
         File coloc2
         Boolean excludeSameNameTrait
         String docker
+        String zone
     }
 
     command <<<
@@ -69,12 +71,12 @@ task generatePair{
         cpu: 2
         memory: "4 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         disks: "local-disk 50 HDD"
+        preemptible: 2
     }
 
     output{
-        #TODO: Do the outputs file in the R file.
         Array[File] pairs = glob("*.pairs.tar.gz")
         Array[File] N = glob("*.N.count")
     }
@@ -87,6 +89,7 @@ task sort_lists{
         String tar_suffix
         String n_suffix
         String docker
+        String zone
     }
 
     command <<<
@@ -126,8 +129,8 @@ task sort_lists{
         cpu: 1
         memory: "2 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b europe-west1-c europe-west1-d"
-        preemptible: 0
+        zones: "~{zone}"
+        preemptible: 2
         disks: "local-disk 10 HDD"
     }
 
@@ -142,6 +145,7 @@ task mergeVariants{
         Array[File] h4_files
         Array[File] credsets
         String docker
+        String zone
     }
 
     command <<<
@@ -161,7 +165,7 @@ task mergeVariants{
         cpu: 2
         memory: "6 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b europe-west1-c europe-west1-d"
+        zones: "~{zone}"
         preemptible: 0
         disks: "local-disk 1000 HDD"
     }
@@ -175,6 +179,7 @@ task mergeAllPair{
         Float cs_log10bf_thresh
         Float probmass_threshold
         String docker
+        String zone
     }
 
     command <<<
@@ -186,7 +191,7 @@ task mergeAllPair{
         cpu: 2
         memory: "4 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         preemptible: 0
         disks: "local-disk 100 HDD"
     }

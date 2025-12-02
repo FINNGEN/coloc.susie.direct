@@ -97,7 +97,7 @@ processInfo <- function(infostr, side){
     ret[["name"]] = name
     return(ret)
 }
-# TODO: read in both files, then do each pair. Write each pair to its own file. keep these files in a folder, which is then globbed.
+
 lines_1 = readLines(info1_file)
 lines_2 = readLines(info2_file)
 for(info1 in lines_1){
@@ -136,9 +136,5 @@ for(info1 in lines_1){
         system(paste0("tar --format=gnu  --sort=name --numeric-owner --owner=0 --group=0 --mode='go-rwx,u-rw' --mtime='1970-01-01' --no-recursion --null -cf -  pairs.tsv map1.txt map2.txt coloc.info|gzip --no-name --best > ",tar_name))
     }
 }
-
-
-
-
 
 message("Done")

@@ -9,18 +9,19 @@ workflow ColocPair{
         Float h4pp_thresh
         Float cs_log10bf_thresh
         Float probmass_threshold
+        String zone
     }
 
     Int block = ceil(1.0 * N / nColocPerBatch)
     scatter(blk in range(block)){
-       call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk, docker=docker}
+       call coloc{input: colocInfo=info, nPerBatch=nColocPerBatch, block=blk, docker=docker,zone=zone}
     }
 
     call mergeColoc{input: colocs=coloc.res, hits=coloc.hits, credsets=coloc.credset_variants, out_stub=basename(info,".pairs.tar.gz"), docker=docker,
-        h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold}
+        h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold,zone=zone}
 
     call mergeH4Tables{
-        input: colocInfo=mergeColoc.coloc_out,h4_variant_tables=coloc.h4_variants,docker=docker
+        input: colocInfo=mergeColoc.coloc_out,h4_variant_tables=coloc.h4_variants,docker=docker,zone=zone
     }
 
     output{
@@ -45,6 +46,7 @@ task coloc{
         Int nPerBatch
         Int block
         String docker
+        String zone
     }
 
     command <<<
@@ -64,7 +66,7 @@ task coloc{
         cpu: 2
         memory: "4 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         disks: "local-disk 100 HDD"
         noAddress: true
     }
@@ -83,6 +85,7 @@ task mergeH4Tables{
         File colocInfo
         Array[String] h4_variant_tables
         String docker
+        String zone
     }
     String out_stub=basename(colocInfo,".sum.tsv.gz")
     command <<<
@@ -99,7 +102,7 @@ task mergeH4Tables{
         memory: "4 GB"
         docker: "~{docker}"
         noAddress: true
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         disks: "local-disk 100 HDD"
         preemptible: 0
     }
@@ -117,6 +120,7 @@ task mergeColoc{
         Array[String] credsets
         String out_stub
         String docker
+        String zone
         Float h4pp_thresh
         Float cs_log10bf_thresh
         Float probmass_threshold
@@ -156,7 +160,7 @@ task mergeColoc{
         memory: "4 GB"
         docker: "~{docker}"
         noAddress: true
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         disks: "local-disk 500 HDD"
         preemptible: 0
     }
