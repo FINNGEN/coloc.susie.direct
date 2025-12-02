@@ -14,19 +14,18 @@ workflow ColocSusieDirectMulti{
         Float probmass_threshold = 0.9
         String docker = "eu.gcr.io/finngen-sandbox-v3-containers/coloc.susie.direct:0.1.7"
     }
-
-    Array[String] coloc1 = read_lines(colocInfo1)
-    Array[String] coloc2 = read_lines(colocInfo2)
-
-    Array[Pair[String, String]] allPair = cross(coloc1, coloc2)
-
-    scatter(pair1 in allPair){
-        call generatePair{
-            input: coloc1=pair1.left, coloc2=pair1.right, excludeSameNameTrait=excludeSameNameTrait, docker=docker
-        }
-        if(generatePair.N > 0){
+    String zone = "europe-west1-b europe-west1-c europe-west1-d"
+    call generatePair{
+            input: coloc1=colocInfo1, coloc2=colocInfo2, excludeSameNameTrait=excludeSameNameTrait, docker=docker,zone=zone
+    }
+    call sort_lists{
+        input: cloud_tar_names = generatePair.pairs,cloud_n_names=generatePair.N,tar_suffix=".pairs.tar.gz",n_suffix=".N.count",docker=docker,zone=zone
+    }
+    scatter(idx in range(length(sort_lists.tar_in_order))){
+        Int N_int = read_int(sort_lists.count_in_order[idx])
+        if(N_int > 0){
             call coloc_sub.ColocPair as colocPair {
-                input: info=generatePair.pairs, N=generatePair.N, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold
+                input: info=sort_lists.tar_in_order[idx], N=N_int, nColocPerBatch=nColocPerBatch, docker=docker, h4pp_thresh=h4pp_thresh,cs_log10bf_thresh=cs_log10bf_thresh,probmass_threshold=probmass_threshold,zone=zone
             }
         }
     }
@@ -35,16 +34,16 @@ workflow ColocSusieDirectMulti{
     Array[File] allH4Table = select_all(colocPair.h4_variant)
     Array[File] allCredset = select_all(colocPair.credset)
     call mergeAllPair{
-        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh=cs_log10bf_thresh, docker=docker,probmass_threshold=probmass_threshold
+        input: colocs=allColoc, h4pp_thresh=h4pp_thresh, cs_log10bf_thresh=cs_log10bf_thresh, docker=docker,probmass_threshold=probmass_threshold,zone=zone
     }
 
     call mergeVariants{
-        input: h4_files = allH4Table, credsets=allCredset,docker=docker
+        input: h4_files = allH4Table, credsets=allCredset,docker=docker,zone=zone
     }
 
     output{
-        Array[File] pairs = generatePair.pairs
-        Array[Int] N = generatePair.N
+        Array[File] pairs = sort_lists.tar_in_order
+        Array[Int] N = N_int
         Array[File] filtered_coloc = allColoc
         Array[File] hit = select_all(colocPair.hit)
         Array[File] unfilteredColoc = select_all(colocPair.unfiltered_sum)
@@ -57,10 +56,11 @@ workflow ColocSusieDirectMulti{
 
 task generatePair{
     input{
-        String coloc1
-        String coloc2
+        File coloc1
+        File coloc2
         Boolean excludeSameNameTrait
         String docker
+        String zone
     }
 
     command <<<
@@ -71,13 +71,72 @@ task generatePair{
         cpu: 2
         memory: "4 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b"
+        zones: "~{zone}"
+        disks: "local-disk 50 HDD"
+        preemptible: 2
+    }
+
+    output{
+        Array[File] pairs = glob("*.pairs.tar.gz")
+        Array[File] N = glob("*.N.count")
+    }
+}
+
+task sort_lists{
+    input{
+        Array[String] cloud_tar_names
+        Array[String] cloud_n_names
+        String tar_suffix
+        String n_suffix
+        String docker
+        String zone
+    }
+
+    command <<<
+        cat << "__EOF__" > data_in_order.py
+        # imports
+        import re
+        # inputs
+        tar_suffix = "~{tar_suffix}"
+        n_suffix = "~{n_suffix}"
+        tarflist = "~{write_lines(cloud_tar_names)}"
+        nflist = "~{write_lines(cloud_n_names)}"
+        with open(tarflist,encoding="utf-8") as f: tars=[a.strip() for a in f.readlines()]
+        with open(nflist,encoding="utf-8") as f: counts=[a.strip() for a in f.readlines()]
+        #make map from basename to path for both of them
+        base_ = lambda x:re.sub(".*/","",x)
+        
+        tar_map = {base_(a).removesuffix(tar_suffix):a for a in tars}
+        count_map = {base_(a).removesuffix(n_suffix):a for a in counts}
+
+        assert sorted(tar_map.keys())==sorted(count_map.keys()), "The lists are not same in tars and counts!!! Error"
+        # put in same order
+        sorted_bases = sorted(tar_map.keys())
+        tars_in_order = [tar_map[a] for a in sorted_bases]
+        counts_in_order = [count_map[a] for a in sorted_bases]
+        # write outputs
+        with open("tar_in_order","w",encoding="utf-8") as of:
+            for v in tars_in_order:
+                of.write(f"{v}\n")
+        with open("count_in_order","w",encoding="utf-8") as of:
+            for v in counts_in_order:
+                of.write(f"{v}\n")
+        __EOF__
+        python3 data_in_order.py
+    >>>
+
+    runtime{
+        cpu: 1
+        memory: "2 GB"
+        docker: "~{docker}"
+        zones: "~{zone}"
+        preemptible: 2
         disks: "local-disk 10 HDD"
     }
 
     output{
-        File pairs = select_first(glob("*.pairs.tar.gz"))
-        Int N = read_int("N.count")
+        Array[String] tar_in_order = read_lines("tar_in_order")
+        Array[String] count_in_order = read_lines("count_in_order")
     }
 }
 
@@ -86,6 +145,7 @@ task mergeVariants{
         Array[File] h4_files
         Array[File] credsets
         String docker
+        String zone
     }
 
     command <<<
@@ -105,7 +165,7 @@ task mergeVariants{
         cpu: 2
         memory: "6 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b europe-west1-c europe-west1-d"
+        zones: "~{zone}"
         preemptible: 0
         disks: "local-disk 1000 HDD"
     }
@@ -119,6 +179,7 @@ task mergeAllPair{
         Float cs_log10bf_thresh
         Float probmass_threshold
         String docker
+        String zone
     }
 
     command <<<
@@ -130,7 +191,7 @@ task mergeAllPair{
         cpu: 2
         memory: "4 GB"
         docker: "~{docker}"
-        zones: "europe-west1-b"
+        zones: "~{zone}"
         preemptible: 0
         disks: "local-disk 100 HDD"
     }
