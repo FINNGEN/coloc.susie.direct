@@ -56,7 +56,7 @@ processInfo <- function(infostr, side){
         stop("the information is invalid: ", infostr)
     }
 
-    system(paste0("gsutil cat ", region_list, " > regions.tsv"))
+    system2("gsutil", c("cat", region_list), stdout = "regions.tsv")
     downFile(region_list, "regions.tsv")
     downFile(mapping, paste0("map", side, ".txt"))
 

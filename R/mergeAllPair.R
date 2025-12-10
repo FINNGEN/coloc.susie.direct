@@ -29,8 +29,6 @@ for(file1 in files.val){
     message(idx, "/", n, ": ", file1)
     dt = fread(file1)
     name1 = basename(file1)
-    name2 = gsub(".sum.tsv.gz", "", name1)
-    name_sep = stri_split_fixed(name2, "-----", simplify=TRUE)
 
     dt[, colocRes:=name1]
     # dataset1 and dataset2 columns should already exist in the file from coloc.R
