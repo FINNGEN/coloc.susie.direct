@@ -56,7 +56,7 @@ processInfo <- function(infostr, side){
         stop("the information is invalid: ", infostr)
     }
 
-    system(paste0("gsutil cat ", region_list, " > regions.tsv"))    
+    system2("gsutil", c("cat", region_list), stdout = "regions.tsv")
     downFile(region_list, "regions.tsv")
     downFile(mapping, paste0("map", side, ".txt"))
 
@@ -85,8 +85,9 @@ processInfo <- function(infostr, side){
 
     dt.region[!grepl("chr", CHR), CHR:=paste0("chr", CHR)]
     dt.region[, CHR:=gsub("chr23", "chrX", CHR)]
+    dt.region[, dataset:=infos_val[1]]
     if(side != 1){
-        sel_col = c("start", "end")
+        sel_col = c("start", "end", "dataset")
         setnames(dt.region, sel_col, paste0(sel_col, side))
     }
 
@@ -104,7 +105,7 @@ for(info1 in lines_1){
     infos1 = processInfo(info1, 1)
     dt1 = unique(infos1[["region"]])
     for(info2 in lines_2){
-        
+
         infos2 = processInfo(info2, 2)
         dt2 = unique(infos2[["region"]])
 
@@ -116,21 +117,22 @@ for(info1 in lines_1){
         tar_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".pairs.tar.gz")
         n_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".N.count")
 
-        dt3 = dt1[dt2, .(URL, trait, region, i.URL, i.trait, i.region), on=.(CHR, start <= end2, end >= start2), nomatch=0]
+        dt3 = dt1[dt2, .(URL, trait, region, dataset, i.URL, i.trait, i.region, i.dataset2), on=.(CHR, start <= end2, end >= start2), nomatch=0]
 
 
         setnames(dt3, c("URL", "i.URL"), c("URL1", "URL2"))
         setnames(dt3, c("trait", "i.trait"), c("trait1", "trait2"))
         setnames(dt3, c("region", "i.region"), c("region1", "region2"))
+        setnames(dt3, c("dataset", "i.dataset2"), c("dataset1", "dataset2"))
 
-        dt3.ord = dt3[order(trait1, region1, trait2, region2)]
+        dt3.ord = dt3[order(dataset1, trait1, region1, dataset2, trait2, region2)]
         message(nrow(dt3.ord), " total pairs have overlapped region.")
         if(bExclude){
-            dt3.ord = dt3.ord[trait1 != trait2]
-            message(nrow(dt3.ord), " pairs after removing traits with the same name")
+            dt3.ord = dt3.ord[dataset1 != dataset2 | trait1 != trait2]
+            message(nrow(dt3.ord), " pairs after removing traits with the same name in the same dataset")
         }
         fwrite(dt3.ord, file=out, sep="\t", col.names=F, na=NA)
-        
+
         cat(nrow(dt3.ord), file=n_name, sep="\n")
         #tar and gzip options to remove all non-reproducible values
         system(paste0("tar --format=gnu  --sort=name --numeric-owner --owner=0 --group=0 --mode='go-rwx,u-rw' --mtime='1970-01-01' --no-recursion --null -cf -  pairs.tsv map1.txt map2.txt coloc.info|gzip --no-name --best > ",tar_name))

@@ -28,13 +28,16 @@ for(file1 in files.val){
     idx = idx + 1
     message(idx, "/", n, ": ", file1)
     dt = fread(file1)
-    name1 = basename(file1) 
-    name2 = gsub(".sum.tsv.gz", "", name1)
-    name_sep = stri_split_fixed(name2, "-----", simplify=TRUE)
+    name1 = basename(file1)
 
     dt[, colocRes:=name1]
-    dt[, dataset1:=name_sep[1]]
-    dt[, dataset2:=name_sep[2]]
+    # dataset1 and dataset2 columns should already exist in the file from coloc.R
+    if(!"dataset1" %in% colnames(dt)){
+        stop("dataset1 column not found in file: ", file1)
+    }
+    if(!"dataset2" %in% colnames(dt)){
+        stop("dataset2 column not found in file: ", file1)
+    }
     nTotal = nTotal + nrow(dt)
     message(" Current: ", nrow(dt), " rows, total: ", nTotal)
 

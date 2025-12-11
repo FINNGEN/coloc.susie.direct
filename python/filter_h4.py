@@ -61,8 +61,8 @@ output_fname = sys.argv[4]
 ## load colocalization identifiers to memory
 
 ds_ids = dataset_ids.split("-----")
-dataset1 = ds_ids[0]
-dataset2 = ds_ids[1]
+dataset1 = ds_ids[0].split("--")[0]
+dataset2 = ds_ids[1].split("--")[0]
 
 data_set = set()
 
