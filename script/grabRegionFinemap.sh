@@ -7,13 +7,12 @@ datatype="$3"
 outDir="$4"
 
 WD="$(mktemp -d)"
-
 echo "This script gathers the information from finemapping pipeline to the colocalization pipeline."
 echo "Maintainer: Zhili"
 
 dstList="$WD/grab.TMP.list"
 echo "Getting susie credible sets..."
-jq '.outputs."finemap.out_susie_cred"' $output | jq -r 'def flatten: .[] | if type == "array" then flatten else . end; if type == "array" then flatten else . end // .' > $dstList
+jq '.outputs."ldstore_finemap.out_susie_cred"' $output | jq -r 'def flatten: .[] | if type == "array" then flatten else . end; if type == "array" then flatten else . end // .' > $dstList
 
 
 useList=""
