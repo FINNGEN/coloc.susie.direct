@@ -1,0 +1,11 @@
+
+{
+    "ColocSusieDirectMulti.colocInfo1": "gs://r13-data/coloc_susie/inputs/R13_coloc_susie_input.txt",
+    "ColocSusieDirectMulti.colocInfo2": "gs://r13-data/coloc_susie/inputs/resources.txt",
+    "ColocSusieDirectMulti.nColocPerBatch": 1500,
+    "ColocSusieDirectMulti.docker": "europe-west1-docker.pkg.dev/finngen-refinery-dev/fg-refinery-registry/coloc.susie.direct:modifications-al-e06f463",
+    "ColocSusieDirectMulti.excludeSameNameTrait": true,
+    "ColocSusieDirectMulti.h4pp_thresh": 0.5,
+    "ColocSusieDirectMulti.cs_log10bf_thresh": 0.9,
+    "ColocSusieDirectMulti.probmass_threshold": 0.0
+}

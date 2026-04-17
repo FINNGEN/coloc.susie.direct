@@ -1,0 +1,10 @@
+
+{
+    "ColocMerge.allColoc_loc": "gs://r13-data/coloc_susie/inputs/R13_coloc_sum.txt",
+    "ColocMerge.allH4Table_loc": "gs://r13-data/coloc_susie/inputs/R13_coloc_h4.txt",
+    "ColocMerge.allCredset_loc": "gs://r13-data/coloc_susie/inputs/R13_coloc_cs.txt",
+    "ColocMerge.docker": "europe-west1-docker.pkg.dev/finngen-refinery-dev/fg-refinery-registry/coloc.susie.direct:modifications-al-e06f463",
+    "ColocMerge.h4pp_thresh": 0.5,
+    "ColocMerge.cs_log10bf_thresh": 0.9,
+    "ColocMerge.probmass_threshold": 0.9
+}
