@@ -444,7 +444,9 @@ for(f1 in dt3.cur1$out1){
                             c_vars[,temp_col:=NA]
                             setnames(c_vars,c("temp_col"),c(opt_col))
                         }
-                    } 
+                    }
+                    # Calculate p-value from beta and se where p is NA but beta and se are available
+                    c_vars[is.na(p1) & !is.na(beta1) & !is.na(se1), p1 := 2 * pnorm(-abs(beta1 / se1))]
                     setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
                     cs1_output[[c]]=c_vars[,..out_cols]
                 }
@@ -460,7 +462,9 @@ for(f1 in dt3.cur1$out1){
                             c_vars[,temp_col:=NA]
                             setnames(c_vars,c("temp_col"),c(opt_col))
                         }
-                    } 
+                    }
+                    # Calculate p-value from beta and se where p is NA but beta and se are available
+                    c_vars[is.na(p2) & !is.na(beta2) & !is.na(se2), p2 := 2 * pnorm(-abs(beta2 / se2))]
                     setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
                     cs2_output[[c]]=c_vars[,..out_cols]
                 }
