@@ -425,15 +425,21 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1[, topInOverlap:=NA_character_]
                 dt.sum1[, probmass_1:=NA_character_]
                 dt.sum1[, probmass_2:=NA_character_]
-                dt.sum1[, hit1_info:=NA_character_]
-                dt.sum1[, hit2_info:=NA_character_]
+                dt.sum1[, hit1_beta:=NA_real_]
+                dt.sum1[, hit1_se:=NA_real_]
+                dt.sum1[, hit1_p:=NA_real_]
+                dt.sum1[, hit1_mlogp:=NA_real_]
+                dt.sum1[, hit2_beta:=NA_real_]
+                dt.sum1[, hit2_se:=NA_real_]
+                dt.sum1[, hit2_p:=NA_real_]
+                dt.sum1[, hit2_mlogp:=NA_real_]
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
 
                 #gather the credible sets.
                 source_1_cs_data = dt1.use[cs1 %in% cs1,]
-                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","cs_specific_prob")
+                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","mlogp","cs_specific_prob")
                 cs1_output = list()
                 
                 for(c in unique(cs1)){
@@ -447,7 +453,10 @@ for(f1 in dt3.cur1$out1){
                     }
                     # Calculate p-value from beta and se where p is NA but beta and se are available
                     c_vars[is.na(p1) & !is.na(beta1) & !is.na(se1), p1 := 2 * pnorm(-abs(beta1 / se1))]
-                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    # Calculate -log10(p) from beta and se to avoid underflow
+                    c_vars[, mlogp1 := NA_real_]
+                    c_vars[!is.na(beta1) & !is.na(se1) & se1 > 0, mlogp1 := -pnorm(-abs(beta1 / se1), log.p=TRUE) / log(10) - log10(2)]
+                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","mlogp1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","mlogp","beta","se","cs_specific_prob"))
                     cs1_output[[c]]=c_vars[,..out_cols]
                 }
                 #rename columns
@@ -465,7 +474,10 @@ for(f1 in dt3.cur1$out1){
                     }
                     # Calculate p-value from beta and se where p is NA but beta and se are available
                     c_vars[is.na(p2) & !is.na(beta2) & !is.na(se2), p2 := 2 * pnorm(-abs(beta2 / se2))]
-                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    # Calculate -log10(p) from beta and se to avoid underflow
+                    c_vars[, mlogp2 := NA_real_]
+                    c_vars[!is.na(beta2) & !is.na(se2) & se2 > 0, mlogp2 := -pnorm(-abs(beta2 / se2), log.p=TRUE) / log(10) - log10(2)]
+                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","mlogp2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","mlogp","beta","se","cs_specific_prob"))
                     cs2_output[[c]]=c_vars[,..out_cols]
                 }
                 source_1_data = rbindlist(cs1_output)
@@ -523,9 +535,23 @@ for(f1 in dt3.cur1$out1){
                     dt.sum1$probmass_2[idx] = probmass_in_shared_2
                     dt.sum1$topInOverlap[idx] = paste0(inRegion1, ",", inRegion2)
                     dt.hit1.1 = dt.hit1[rsid == dt.sum1$hit1[idx]]
-                    dt.sum1$hit1_info[idx] = paste0(c(dt.hit1.1$beta1, dt.hit1.1$p1), collapse=",")
+                    dt.sum1$hit1_beta[idx] = dt.hit1.1$beta1
+                    dt.sum1$hit1_se[idx] = dt.hit1.1$se1
+                    dt.sum1$hit1_p[idx] = dt.hit1.1$p1
+                    # Calculate -log10(p) from beta and se to avoid underflow
+                    if(!is.na(dt.hit1.1$beta1) && !is.na(dt.hit1.1$se1) && dt.hit1.1$se1 > 0){
+                        z1 = abs(dt.hit1.1$beta1 / dt.hit1.1$se1)
+                        dt.sum1$hit1_mlogp[idx] = -pnorm(-z1, log.p=TRUE) / log(10) - log10(2)
+                    }
                     dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
-                    dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
+                    dt.sum1$hit2_beta[idx] = dt.hit1.2$beta2
+                    dt.sum1$hit2_se[idx] = dt.hit1.2$se2
+                    dt.sum1$hit2_p[idx] = dt.hit1.2$p2
+                    # Calculate -log10(p) from beta and se to avoid underflow
+                    if(!is.na(dt.hit1.2$beta2) && !is.na(dt.hit1.2$se2) && dt.hit1.2$se2 > 0){
+                        z2 = abs(dt.hit1.2$beta2 / dt.hit1.2$se2)
+                        dt.sum1$hit2_mlogp[idx] = -pnorm(-z2, log.p=TRUE) / log(10) - log10(2)
+                    }
 
                     #gather H4 tables
                     if(nrow(dt.sum1)==1){
