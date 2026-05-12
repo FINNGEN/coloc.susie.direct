@@ -28,8 +28,8 @@ Then, upload both of those files to a bucket (e.g. to the same folder where the 
 
 ## Inputs
 json
-* colocInfo1: coloc information for paired trait1, format: dataset name, dataset type, resource link
-* colocInfo2: coloc information for paired trait2
+* colocInfo1: coloc information for paired trait1. Tab-separated with header. Required columns: `source`, `type`, `tissue`, `quant`. Plus either `url` (path prefix; script appends `/Coloc.regions.tsv` and `/Coloc.map.txt`) or `regions_file` + `mapping_file`. Use `NA` for tissue/quant when not applicable.
+* colocInfo2: coloc information for paired trait2 (same format as colocInfo1)
 * nColocPerBatch: number of coloc pairs distached to each VM node, default 1000
 * excludeSameNameTrait: exclude the traits with the same name, default true
 * h4pp\_thresh: H4 Posterior Probability threshold to merge the coloc results, default 0.5. For core analysis it is recommended that the results are further filtered with value 0.8.
