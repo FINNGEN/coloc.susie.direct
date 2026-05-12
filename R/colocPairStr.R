@@ -30,33 +30,29 @@ downFile <- function(URL, filename, numTries=5){
     }
 }
 
-processInfo <- function(infostr, side){
-    message("Processing coloc", side, ", ", infostr)
-    infos = strsplit(infostr, "[ \t]+")[[1]]
-    infos_val = infos[infos != ""]
+processInfo <- function(info_row, side){
+    source_val = info_row$source
+    tissue_val = info_row$tissue
+    quant_val  = info_row$quant
 
-    n_info = length(infos_val)
-    if(n_info < 3){
-        stop("the information is invald: ", infostr)
+    message("Processing coloc", side, ", ", source_val)
+
+    cols = names(info_row)
+    prefix = NA_character_
+    if("URL" %in% cols){
+        prefix = info_row$URL
+        region_list = paste0(prefix, "/Coloc.regions.tsv")
+        mapping = paste0(prefix, "/Coloc.map.txt")
+    } else if("regions_file" %in% cols && "mapping_file" %in% cols){
+        region_list = info_row$regions_file
+        mapping = info_row$mapping_file
+        prefix = dirname(region_list)
+    } else {
+        stop("colocInfo must have either 'URL' or 'regions_file'+'mapping_file' columns")
     }
 
-    name = paste0(infos_val[1], "--", infos_val[2])
+    name = paste0(source_val, "--", info_row$type, "--", tissue_val, "--", quant_val)
 
-    region_list = ""
-    mapping = ""
-    isPrefix = FALSE
-    if(n_info == 3){
-        region_list = paste0(infos_val[3], "/Coloc.regions.tsv")
-        mapping = paste0(infos_val[3], "/Coloc.map.txt")
-        isPrefix = TRUE
-    }else if(n_info == 4){
-        region_list = infos_val[3]
-        mapping = infos_val[4]
-    }else{
-        stop("the information is invalid: ", infostr)
-    }
-
-    system2("gsutil", c("cat", region_list), stdout = "regions.tsv")
     downFile(region_list, "regions.tsv")
     downFile(mapping, paste0("map", side, ".txt"))
 
@@ -65,8 +61,8 @@ processInfo <- function(infostr, side){
         stop("The region defination file is invalid, header is not consistent: ", region_list)
     }
 
-    if(isPrefix){
-        dt.region[!grepl("gs://", URL), URL:=paste0(infos_val[3], "/", URL)]
+    if(!is.na(prefix)){
+        dt.region[!grepl("gs://", URL), URL:=paste0(prefix, "/", URL)]
     }
 
     if(nrow(dt.region[!grepl("gs://", URL)]) != 0){
@@ -85,9 +81,11 @@ processInfo <- function(infostr, side){
 
     dt.region[!grepl("chr", CHR), CHR:=paste0("chr", CHR)]
     dt.region[, CHR:=gsub("chr23", "chrX", CHR)]
-    dt.region[, dataset:=infos_val[1]]
+    dt.region[, dataset:=source_val]
+    dt.region[, tissue:=tissue_val]
+    dt.region[, quant:=quant_val]
     if(side != 1){
-        sel_col = c("start", "end", "dataset")
+        sel_col = c("start", "end", "dataset", "tissue", "quant")
         setnames(dt.region, sel_col, paste0(sel_col, side))
     }
 
@@ -99,31 +97,46 @@ processInfo <- function(infostr, side){
     return(ret)
 }
 
-lines_1 = readLines(info1_file)
-lines_2 = readLines(info2_file)
-for(info1 in lines_1){
-    infos1 = processInfo(info1, 1)
-    dt1 = unique(infos1[["region"]])
-    for(info2 in lines_2){
+validateColocInfo <- function(dt, fname){
+    required = c("source","type","tissue","quant")
+    missing = setdiff(required, colnames(dt))
+    if(length(missing) > 0)
+        stop("Missing required columns in ", fname, ": ", paste(missing, collapse=", "))
+    has_url = "URL" %in% colnames(dt)
+    has_files = all(c("regions_file","mapping_file") %in% colnames(dt))
+    if(!has_url && !has_files)
+        stop("colocInfo file ", fname, " must have column 'URL' or both 'regions_file' and 'mapping_file'")
+}
 
-        infos2 = processInfo(info2, 2)
+info1_dt = fread(info1_file, header=TRUE)
+info2_dt = fread(info2_file, header=TRUE)
+validateColocInfo(info1_dt, info1_file)
+validateColocInfo(info2_dt, info2_file)
+
+for(i in seq_len(nrow(info1_dt))){
+    infos1 = processInfo(info1_dt[i], 1)
+    dt1 = unique(infos1[["region"]])
+    for(j in seq_len(nrow(info2_dt))){
+
+        infos2 = processInfo(info2_dt[j], 2)
         dt2 = unique(infos2[["region"]])
 
         message(nrow(dt1), " regions in coloc1")
         message(nrow(dt2), " regions in coloc2")
 
         out = "pairs.tsv"
-        cat(c(info1, info2), file="coloc.info", sep="\n")
+        cat(c(paste(info1_dt[i], collapse="\t"), paste(info2_dt[j], collapse="\t")), file="coloc.info", sep="\n")
         tar_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".pairs.tar.gz")
         n_name = paste0(infos1[["name"]], "-----", infos2[["name"]], ".N.count")
 
-        dt3 = dt1[dt2, .(URL, trait, region, dataset, i.URL, i.trait, i.region, i.dataset2), on=.(CHR, start <= end2, end >= start2), nomatch=0]
-
+        dt3 = dt1[dt2, .(URL, trait, region, dataset, tissue, quant, i.URL, i.trait, i.region, i.dataset2, i.tissue2, i.quant2), on=.(CHR, start <= end2, end >= start2), nomatch=0]
 
         setnames(dt3, c("URL", "i.URL"), c("URL1", "URL2"))
         setnames(dt3, c("trait", "i.trait"), c("trait1", "trait2"))
         setnames(dt3, c("region", "i.region"), c("region1", "region2"))
         setnames(dt3, c("dataset", "i.dataset2"), c("dataset1", "dataset2"))
+        setnames(dt3, c("tissue", "i.tissue2"), c("tissue1", "tissue2"))
+        setnames(dt3, c("quant", "i.quant2"), c("quant1", "quant2"))
 
         dt3.ord = dt3[order(dataset1, trait1, region1, dataset2, trait2, region2)]
         message(nrow(dt3.ord), " total pairs have overlapped region.")

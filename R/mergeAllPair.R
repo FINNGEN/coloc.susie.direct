@@ -38,6 +38,10 @@ for(file1 in files.val){
     if(!"dataset2" %in% colnames(dt)){
         stop("dataset2 column not found in file: ", file1)
     }
+    for(col in c("tissue1","tissue2","quant1","quant2")){
+        if(!col %in% colnames(dt))
+            stop(col, " column not found in file: ", file1)
+    }
     nTotal = nTotal + nrow(dt)
     message(" Current: ", nrow(dt), " rows, total: ", nTotal)
 
@@ -52,7 +56,7 @@ rm(dts)
 
 dt.qc = dt.sig[cs1_log10bf >= cs_log10bf_thresh & cs2_log10bf >= cs_log10bf_thresh]
 
-setcolorder(dt.qc, c("dataset1", "dataset2"))
+setcolorder(dt.qc, c("dataset1","dataset2","tissue1","tissue2","quant1","quant2"))
 
 fwrite(dt.qc, file="colocQC.tsv.gz", sep="\t", na="NA", quote=FALSE)
 
