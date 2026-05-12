@@ -1,0 +1,4 @@
+# Ignore folders not needed in Docker image
+docker/
+wdl/
+README.md
