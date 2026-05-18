@@ -328,14 +328,37 @@ for(f1 in dt3.cur1$out1){
             setnames(dt1.use,c("temp_col"),c(opt_col))
         }
     }
+    if(! "low_purity1" %in% colnames(dt1.use)){
+        dt1.use[, low_purity1 := NA_logical_]
+    }
     # Calculate p-value from beta and se where p is NA but beta and se are available
     dt1.use[is.na(p1) & !is.na(beta1) & !is.na(se1), p1 := 2 * pnorm(-abs(beta1 / se1))]
     # Calculate -log10(p) from beta and se to avoid underflow
     dt1.use[!is.na(beta1) & !is.na(se1) & se1 > 0, mlogp1 := -pnorm(-abs(beta1 / se1), log.p=TRUE) / log(10) - log10(2)]
 
+    cs1_original = unique(dt1.use$cs1)
+    cs1_mapping = NULL
+    cs1_reverse_mapping = NULL
+    
+    # Create mapping if non-numeric
+    if(!is.numeric(cs1_original)) {
+        # Filter character cs1 values
+        cs1_filtered = cs1_original[!is.na(cs1_original) & cs1_original != "-1" & cs1_original != ""]
+        cs1_filtered = sort(unique(cs1_filtered))
+        
+        # Create bidirectional mapping
+        cs1_mapping = setNames(seq_along(cs1_filtered), cs1_filtered)
+        cs1_reverse_mapping = setNames(names(cs1_mapping), cs1_mapping)
+        
+        # Apply mapping to table
+        dt1.use[, cs1_orig := cs1]
+        dt1.use[, cs1 := as.numeric(cs1_mapping[as.character(cs1)])]
+    }
+
+    cs1 = sort(unique(dt1.use[is.finite(cs1) & cs1 != -1, cs1]))
+
     #calculate cs-specific PIP for credible sets
-    indices_1=unique(dt1.use[cs1>0]$cs1)
-    for(idx in indices_1 ){
+    for(idx in cs1 ){
         dt1.use[,temp_alpha:=lbf_to_alpha(dt1.use,paste0("lbf1_",idx))]
         setnames(dt1.use,c("temp_alpha"),c(paste0("pip_calc1_",idx)))
     }
@@ -372,14 +395,37 @@ for(f1 in dt3.cur1$out1){
                 setnames(dt2.use,c("temp_col"),c(opt_col))
             }
         }
+        if(! "low_purity2" %in% colnames(dt2.use)){
+            dt2.use[, low_purity2 := NA]
+        }
         # Calculate p-value from beta and se where p is NA but beta and se are available
         dt2.use[is.na(p2) & !is.na(beta2) & !is.na(se2), p2 := 2 * pnorm(-abs(beta2 / se2))]
         # Calculate -log10(p) from beta and se to avoid underflow
         dt2.use[!is.na(beta2) & !is.na(se2) & se2 > 0, mlogp2 := -pnorm(-abs(beta2 / se2), log.p=TRUE) / log(10) - log10(2)]
 
+        cs2_original = unique(dt2.use$cs2)
+        cs2_mapping = NULL
+        cs2_reverse_mapping = NULL
+        
+        # Handle cs2: create mapping if non-numeric
+        if(!is.numeric(cs2_original)) {
+            # Filter character cs2 values
+            cs2_filtered = cs2_original[!is.na(cs2_original) & cs2_original != "-1" & cs2_original != ""]
+            cs2_filtered = sort(unique(cs2_filtered))
+            
+            # Create bidirectional mapping
+            cs2_mapping = setNames(seq_along(cs2_filtered), cs2_filtered)
+            cs2_reverse_mapping = setNames(names(cs2_mapping), cs2_mapping)
+            
+            # Apply mapping to table
+            dt2.use[, cs2_orig := cs2]
+            dt2.use[, cs2 := as.numeric(cs2_mapping[as.character(cs2)])]
+        }
+
+        cs2 = sort(unique(dt2.use[is.finite(cs2) & cs2 != -1, cs2]))
+
         #calculate cs-specific PIP for credible sets
-        indices_2=unique(dt2.use[cs2>0]$cs2)
-        for(idx in indices_2){
+        for(idx in cs2){
             dt2.use[,temp_alpha:=lbf_to_alpha(dt2.use,paste0("lbf2_",idx))]
             setnames(dt2.use,c("temp_alpha"),c(paste0("pip_calc2_",idx)))
         }
@@ -391,23 +437,6 @@ for(f1 in dt3.cur1$out1){
         #saveRDS(dt2[, ..use_cols2], file=paste0("dt2.rds"))
         if(debug){
             save(dt1.use, dt2.use, dt3, file=paste0("out.rda"))
-        }
-
-        cs1 = sort(unique(dt1.use$cs1))
-        cs2 = sort(unique(dt2.use$cs2))
-        
-        # Filter cs1 based on type
-        if(is.numeric(cs1)) {
-            cs1 = cs1[is.finite(cs1) & cs1 != -1]
-        } else {
-            cs1 = cs1[!is.na(cs1) & cs1 != "-1" & cs1 != ""]
-        }
-        
-        # Filter cs2 based on type
-        if(is.numeric(cs2)) {
-            cs2 = cs2[is.finite(cs2) & cs2 != -1]
-        } else {
-            cs2 = cs2[!is.na(cs2) & cs2 != "-1" & cs2 != ""]
         }
 
         dt.sum1 = data.table()
@@ -519,6 +548,19 @@ for(f1 in dt3.cur1$out1){
                 source_2_data$tissue  = tissue_id_2
                 source_2_data$quant   = quant_id_2
                 cs_data = rbind(source_1_data,source_2_data)
+                
+                # Map cs back to original values if needed
+                if(!is.null(cs1_reverse_mapping) || !is.null(cs2_reverse_mapping)) {
+                    # Convert cs to character to handle mixed types
+                    cs_data[, cs := as.character(cs)]
+                }
+                if(!is.null(cs1_reverse_mapping)) {
+                    cs_data[dataset == dataset_id_1, cs := cs1_reverse_mapping[as.character(cs)]]
+                }
+                if(!is.null(cs2_reverse_mapping)) {
+                    cs_data[dataset == dataset_id_2, cs := cs2_reverse_mapping[as.character(cs)]]
+                }
+                
                 fwrite(cs_data,output.credsets,sep="\t",append=credset_append,na="NA",quote=F)
                 credset_append=TRUE
                 
@@ -603,6 +645,15 @@ for(f1 in dt3.cur1$out1){
                     h4_pp_data$region2 = dt.sum1$region2[idx]
                     h4_pp_data$cs1 = idx1
                     h4_pp_data$cs2 = idx2
+                    
+                    # Map cs back to original values if needed
+                    if(!is.null(cs1_reverse_mapping)) {
+                        h4_pp_data$cs1 = cs1_reverse_mapping[as.character(h4_pp_data$cs1)]
+                    }
+                    if(!is.null(cs2_reverse_mapping)) {
+                        h4_pp_data$cs2 = cs2_reverse_mapping[as.character(h4_pp_data$cs2)]
+                    }
+                    
                     h4_cols = c("dataset1","dataset2","tissue1","tissue2","quant1","quant2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
                     setcolorder(h4_pp_data,h4_cols)
                     fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F,compress="gzip")
@@ -612,6 +663,17 @@ for(f1 in dt3.cur1$out1){
                 message("Invalid coloc results")
             }
         }
+        
+        # Map cs back to original values in dt.sum1 if needed
+        if(nrow(dt.sum1) > 0) {
+            if(!is.null(cs1_reverse_mapping)) {
+                dt.sum1[, cs1 := cs1_reverse_mapping[as.character(cs1)]]
+            }
+            if(!is.null(cs2_reverse_mapping)) {
+                dt.sum1[, cs2 := cs2_reverse_mapping[as.character(cs2)]]
+            }
+        }
+        
         dts[[nProcess]] = dt.sum1
         dts.hits[[nProcess]] = dt.hit1
     }
