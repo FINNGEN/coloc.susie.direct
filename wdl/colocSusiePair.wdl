@@ -53,13 +53,21 @@ task coloc{
         filename=$(basename "~{colocInfo}")
         dataset_id="$(echo $filename | sed 's/.pairs.tar.gz//')"
         #this is needed in the coloc.R command, since it has commands consisting of piped commands, which do not show correct return code without pipefail
-        set -o pipefail
+        set -eo pipefail
         tar xvf ~{colocInfo}
         coloc.R pairs.tsv map1.txt map2.txt ~{nPerBatch} ~{block} "${dataset_id}"
         #save 
         
-        #make sure credset vars are unique
-        cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq)|gzip > "region~{block}.credsets.tsv.gz"
+        #make sure credset vars are unique. If it doesn't exist, create empty file
+        if [ ! -f "region~{block}.credsets.tsv" ]; then
+            touch "region~{block}.credsets.tsv.gz"
+        else
+            cat <(head -n1 "region~{block}.credsets.tsv") <(tail -n+2 "region~{block}.credsets.tsv"|sort|uniq)|gzip > "region~{block}.credsets.tsv.gz"
+        fi
+
+        if [ ! -f "region~{block}.h4_variants.tsv.gz" ]; then
+            touch "region~{block}.h4_variants.tsv.gz"
+        fi
     >>>
 
     runtime{
