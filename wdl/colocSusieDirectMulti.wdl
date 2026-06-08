@@ -184,7 +184,7 @@ task mergeAllPair{
 
     command <<<
         echo "~{sep='\n' colocs}" > list.txt
-        mergeAllPair.R list.txt ~{h4pp_thresh} ~{cs_log10bf_thresh}  ~{probmass_threshold}
+        mergeAllPair.py list.txt ~{h4pp_thresh} ~{cs_log10bf_thresh}  ~{probmass_threshold}
     >>>
 
     runtime{
