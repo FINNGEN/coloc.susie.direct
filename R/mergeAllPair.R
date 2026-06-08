@@ -28,6 +28,10 @@ for(file1 in files.val){
     idx = idx + 1
     message(idx, "/", n, ": ", file1)
     dt = fread(file1)
+    if (nrow(dt) == 0){
+        message(" No rows in file: ", file1)
+        next
+    }
     name1 = basename(file1)
 
     dt[, colocRes:=name1]
