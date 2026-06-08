@@ -34,7 +34,7 @@ workflow ColocPair{
     }
 
     meta{
-        version: "0.1.8"
+        version: "0.1.9"
     }
 }
 
@@ -52,7 +52,7 @@ task coloc{
         filename=$(basename "~{colocInfo}")
         dataset_id="$(echo $filename | sed 's/.pairs.tar.gz//')"
         #this is needed in the coloc.R command, since it has commands consisting of piped commands, which do not show correct return code without pipefail
-        set -eo pipefail
+        set -o pipefail
         tar xvf ~{colocInfo}
         coloc.R pairs.tsv map1.txt map2.txt ~{nPerBatch} ~{block} "${dataset_id}"
         #save 
@@ -76,6 +76,7 @@ task coloc{
         zones: "~{zone}"
         disks: "local-disk 100 HDD"
         noAddress: true
+        maxRetries: 2
     }
 
     output{
@@ -95,18 +96,21 @@ task mergeH4Tables{
         String zone
     }
     String out_stub=basename(colocInfo,".sum.tsv.gz")
+    Int n_tables = length(h4_variant_tables)
+    Int cpus = if n_tables < 4 then 1 else if n_tables < 20 then 2 else if n_tables < 40 then 4 else 8
+    Int workers = if n_tables == 1 then 1 else cpus * 2
     command <<<
         set -e
         #set gcloud auth 
         date
         echo "combining H4 tables"
         export GCS_AUTH_TOKEN="$(gcloud auth print-access-token)"
-        filter_h4.py ~{colocInfo} ~{write_lines(h4_variant_tables)} "~{out_stub}" "~{out_stub}.h4.variants.tsv.gz"
+        filter_h4.py ~{colocInfo} ~{write_lines(h4_variant_tables)} "~{out_stub}" "~{out_stub}.h4.variants.tsv.gz" ~{workers}
     >>>
 
     runtime{
-        cpu: 1
-        memory: "4 GB"
+        cpu: cpus
+        memory: "16 GB"
         docker: "~{docker}"
         noAddress: true
         zones: "~{zone}"
@@ -138,28 +142,78 @@ task mergeColoc{
         echo "~{sep='\n' credsets}" > credsets.txt
 
         mkdir sums h4_variants hits credsets
+
+        is_nonempty() {
+            local f="$1"
+            [ -s "$f" ] || return 1
+            local nlines
+            case "$f" in
+                *.gz) nlines=$(zcat "$f" 2>/dev/null | head -n 2 | wc -l) ;;
+                *)    nlines=$(head -n 2 "$f" | wc -l) ;;
+            esac
+            [ "$nlines" -ge 2 ]
+        }
+
+        filter_nonempty() {
+            local in_list="$1"
+            local out_list="$2"
+            : > "$out_list"
+            while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                if is_nonempty "$f"; then
+                    echo "$f" >> "$out_list"
+                fi
+            done < "$in_list"
+        }
+
         date
         echo "combining sumstats"
         cat sum.txt | gcloud storage cp -I sums/
         find sums/ -name "*.sum.tsv" > sum_list
-        filterSums.R sum_list ~{h4pp_thresh} ~{cs_log10bf_thresh} ~{probmass_threshold} "~{out_stub}.sum.tsv.gz"
-        awk 'FNR>1 || NR==1' sums/*.tsv | gzip > ~{out_stub}.sum.unfiltered.tsv.gz
-        rm sums/*.tsv
-        date 
+        filter_nonempty sum_list sum_list.nonempty
+        if [ -s sum_list.nonempty ]; then
+            filterSums.R sum_list.nonempty ~{h4pp_thresh} ~{cs_log10bf_thresh} ~{probmass_threshold} "~{out_stub}.sum.tsv.gz"
+            awk 'FNR>1 || NR==1' $(cat sum_list.nonempty) | gzip > ~{out_stub}.sum.unfiltered.tsv.gz
+        else
+            echo "no non-empty sum files; emitting empty outputs"
+            touch "~{out_stub}.sum.tsv.gz" "~{out_stub}.sum.unfiltered.tsv.gz"
+        fi
+        rm -f sums/*.tsv
+
+        date
         echo "combining hit files"
         cat hits.txt | gcloud storage cp -I hits/
-        awk 'FNR>1 || NR==1' hits/*.tsv | gzip > ~{out_stub}.hits.tsv.gz
-        rm hits/*.tsv
+        find hits/ -name "*.tsv" > hits_list
+        filter_nonempty hits_list hits_list.nonempty
+        if [ -s hits_list.nonempty ]; then
+            awk 'FNR>1 || NR==1' $(cat hits_list.nonempty) | gzip > ~{out_stub}.hits.tsv.gz
+        else
+            echo "no non-empty hits files; emitting empty output"
+            touch "~{out_stub}.hits.tsv.gz"
+        fi
+        rm -f hits/*.tsv
 
         date
         echo "combining credset files"
         cat credsets.txt | gcloud storage cp -I credsets/
         find credsets/ -name "*.credsets.tsv.gz" > cs_list
-        mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list "~{out_stub}" "temp_cs.gz" 
-        cat <(zcat "temp_cs.gz"|head -n1) <(zcat "temp_cs.gz"|tail -n+2|sort -T ./|uniq)|gzip > "~{out_stub}.credset.tsv.gz"
-        date 
-        echo "combining unfiltered credset files"
-        cat <(zcat ~{out_stub}.credset.tsv.gz|head -n1) <(cat cs_list|xargs -I % bash -c 'zcat %|awk {FNR>1}')|sort -T ./|uniq|gzip >  ~{out_stub}.credset.unfiltered.tsv.gz
+        filter_nonempty cs_list cs_list.nonempty
+        if [ -s cs_list.nonempty ]; then
+            if [ -s "~{out_stub}.sum.tsv.gz" ]; then
+                mergeVariants.py "~{out_stub}.sum.tsv.gz" cs_list.nonempty "~{out_stub}" "temp_cs.gz"
+                cat <(zcat "temp_cs.gz" | head -n1) <(zcat "temp_cs.gz" | tail -n+2 | sort -T ./ | uniq) | gzip > "~{out_stub}.credset.tsv.gz"
+            else
+                echo "sum output empty; emitting empty filtered credset"
+                touch "~{out_stub}.credset.tsv.gz"
+            fi
+            date
+            echo "combining unfiltered credset files"
+            first_cs=$(head -n1 cs_list.nonempty)
+            cat <(zcat "$first_cs" | head -n1) <(cat cs_list.nonempty | xargs -I % bash -c 'zcat % | tail -n +2 ' | sort -T ./ | uniq) | gzip > ~{out_stub}.credset.unfiltered.tsv.gz
+        else
+            echo "no non-empty credset files; emitting empty outputs"
+            touch "~{out_stub}.credset.tsv.gz" "~{out_stub}.credset.unfiltered.tsv.gz"
+        fi
     >>>
 
     runtime{
