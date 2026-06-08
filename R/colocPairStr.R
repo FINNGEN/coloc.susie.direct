@@ -40,13 +40,13 @@ processInfo <- function(info_row, side){
     cols = names(info_row)
     prefix = NA_character_
     if("URL" %in% cols){
-        prefix = info_row$URL
+        prefix = sub("/+$", "", info_row$URL)
         region_list = paste0(prefix, "/Coloc.regions.tsv")
         mapping = paste0(prefix, "/Coloc.map.txt")
     } else if("regions_file" %in% cols && "mapping_file" %in% cols){
         region_list = info_row$regions_file
         mapping = info_row$mapping_file
-        prefix = dirname(region_list)
+        prefix = sub("/+$", "", dirname(region_list))
     } else {
         stop("colocInfo must have either 'URL' or 'regions_file'+'mapping_file' columns")
     }
