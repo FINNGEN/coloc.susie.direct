@@ -1,0 +1,24 @@
+{
+  "upload_type": "software",
+  "title": "coloc.susie.direct: colocalization of SuSiE fine-mapping credible sets in FinnGen",
+  "description": "WDL pipeline for pairwise colocalization of SuSiE credible sets produced by the FinnGen fine-mapping pipeline. It tests each overlapping region pair with coloc and reports posterior probabilities of a shared causal variant, together with the credible set variants supporting each colocalization.",
+  "creators": [
+    {
+      "name": "Lehisto, Arto",
+      "orcid": "0000-0003-2972-470X",
+      "affiliation": "University of Helsinki"
+    },
+    {
+      "name": "Zheng, Zhili",
+      "orcid": "0000-0003-2102-221X",
+      "affiliation": "Broad Institute of MIT and Harvard"
+    },
+    {
+      "name": "Kanai, Masahiro",
+      "orcid": "0000-0001-5165-4408",
+      "affiliation": "Massachusetts General Hospital & Broad Institute of MIT and Harvard"
+    }
+  ],
+  "license": "mit",
+  "access_right": "open"
+}
