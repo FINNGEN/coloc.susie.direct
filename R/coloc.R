@@ -572,8 +572,8 @@ for(f1 in dt3.cur1$out1){
                     #Note: need to set alphas for the common variant set
                     dt3.cur[, pp:=get(paste0("pip_calc1_",idx1))*get(paste0("pip_calc2_",idx2))]
                     dt3.cur[, pa:=pmin(get(paste0("pip_calc1_",idx1)),get(paste0("pip_calc2_",idx2)))]
-                    dt.sum1$cs1_size[idx] = nrow(dt1[cs1==idx1])
-                    dt.sum1$cs2_size[idx] = nrow(dt2[cs2==idx2])
+                    dt.sum1$cs1_size[idx] = nrow(dt1.use[cs1==idx1])
+                    dt.sum1$cs2_size[idx] = nrow(dt2.use[cs2==idx2])
                     dt.sum1$cs_overlap[idx] = nrow(dt3.cur)
                     
                     if(nrow(dt3.cur) != 0){
