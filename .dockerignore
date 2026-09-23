@@ -1,0 +1,10 @@
+# Ignore folders/files not needed in Docker image (only R/ and python/ are copied in).
+.git
+.gitignore
+docker/
+wdl/
+script/
+*.zip
+*.json
+*.md
+.DS_Store

@@ -24,8 +24,18 @@ block=as.numeric(args[5])
 
 # dataset id string
 dataset_id_string=strsplit(args[6],"-----")
-dataset_id_1 =strsplit(dataset_id_string[[1]][1],"--")[[1]][1]
-dataset_id_2 =strsplit(dataset_id_string[[1]][2],"--")[[1]][1]
+parts_1 = strsplit(dataset_id_string[[1]][1],"--")[[1]]
+parts_2 = strsplit(dataset_id_string[[1]][2],"--")[[1]]
+dataset_id_1 = parts_1[1]
+dataset_id_2 = parts_2[1]
+tissue_id_1  = parts_1[3]
+tissue_id_2  = parts_2[3]
+quant_id_1   = parts_1[4]
+quant_id_2   = parts_2[4]
+if(length(parts_1) != 4)
+    stop("Compound ID part 1 must have 4 '--'-separated fields, got: ", dataset_id_string[[1]][1])
+if(length(parts_2) != 4)
+    stop("Compound ID part 2 must have 4 '--'-separated fields, got: ", dataset_id_string[[1]][2])
 
 debug = FALSE
 if(length(args) >= 7){
@@ -36,7 +46,9 @@ dt.list = fread(colocList, head=F)
 dt.map1 = fread(map1, head=F)
 dt.map2 = fread(map2, head=F)
 
-setnames(dt.list, c("URL1", "trait1", "region1", "dataset1", "URL2", "trait2", "region2", "dataset2"))
+if(ncol(dt.list) != 12)
+    stop("pairs.tsv must have 12 columns, got: ", ncol(dt.list))
+setnames(dt.list, c("URL1","trait1","region1","dataset1","tissue1","quant1","URL2","trait2","region2","dataset2","tissue2","quant2"))
 
 nList = nrow(dt.list)
 message(nList, " in list")
@@ -290,6 +302,8 @@ for(f1 in dt3.cur1$out1){
     # prepare the first one
     dt.list.cur = dt.list[out1==f1]
     dataset1.cur = dt.list.cur$dataset1[1]
+    tissue1.cur  = dt.list.cur$tissue1[1]
+    quant1.cur   = dt.list.cur$quant1[1]
     trait1.cur = dt.list.cur$trait1[1]
     region1.cur = dt.list.cur$region1[1]
 
@@ -307,9 +321,44 @@ for(f1 in dt3.cur1$out1){
     use_cols1 = c(dt.map1.use$V1, lbfn_cols1)
     dt1.use = dt1[, ..use_cols1]
 
+    # Add missing columns
+    for(opt_col in c("p1", "mlogp1", "beta1", "se1")){
+        if(!(opt_col %in% colnames(dt1.use))){
+            dt1.use[,temp_col:=NA_real_]
+            setnames(dt1.use,c("temp_col"),c(opt_col))
+        }
+    }
+    if(! "low_purity1" %in% colnames(dt1.use)){
+        dt1.use[, low_purity1 := NA_logical_]
+    }
+    # Calculate p-value from beta and se where p is NA but beta and se are available
+    dt1.use[is.na(p1) & !is.na(beta1) & !is.na(se1), p1 := 2 * pnorm(-abs(beta1 / se1))]
+    # Calculate -log10(p) from beta and se to avoid underflow
+    dt1.use[!is.na(beta1) & !is.na(se1) & se1 > 0, mlogp1 := -pnorm(-abs(beta1 / se1), log.p=TRUE) / log(10) - log10(2)]
+
+    cs1_original = unique(dt1.use$cs1)
+    cs1_mapping = NULL
+    cs1_reverse_mapping = NULL
+    
+    # Create mapping if non-numeric
+    if(!is.numeric(cs1_original)) {
+        # Filter character cs1 values
+        cs1_filtered = cs1_original[!is.na(cs1_original) & cs1_original != "-1" & cs1_original != ""]
+        cs1_filtered = sort(unique(cs1_filtered))
+        
+        # Create bidirectional mapping
+        cs1_mapping = setNames(seq_along(cs1_filtered), cs1_filtered)
+        cs1_reverse_mapping = setNames(names(cs1_mapping), cs1_mapping)
+        
+        # Apply mapping to table
+        dt1.use[, cs1_orig := cs1]
+        dt1.use[, cs1 := as.numeric(cs1_mapping[as.character(cs1)])]
+    }
+
+    cs1 = sort(unique(dt1.use[is.finite(cs1) & cs1 != -1, cs1]))
+
     #calculate cs-specific PIP for credible sets
-    indices_1=unique(dt1.use[cs1>0]$cs1)
-    for(idx in indices_1 ){
+    for(idx in cs1 ){
         dt1.use[,temp_alpha:=lbf_to_alpha(dt1.use,paste0("lbf1_",idx))]
         setnames(dt1.use,c("temp_alpha"),c(paste0("pip_calc1_",idx)))
     }
@@ -317,6 +366,8 @@ for(f1 in dt3.cur1$out1){
     for(idx.f2 in 1:nrow(dt.list.cur)){
         f2 = dt.list.cur$out2[idx.f2]
         dataset2.cur = dt.list.cur$dataset2[idx.f2]
+        tissue2.cur  = dt.list.cur$tissue2[idx.f2]
+        quant2.cur   = dt.list.cur$quant2[idx.f2]
         trait2.cur = dt.list.cur$trait2[idx.f2]
         region2.cur = dt.list.cur$region2[idx.f2]
         nProcess = nProcess + 1
@@ -337,27 +388,56 @@ for(f1 in dt3.cur1$out1){
         use_cols2 = c(dt.map2.use$V1, lbfn_cols2)
         dt2.use = dt2[, ..use_cols2]
 
+        # Add missing columns
+        for(opt_col in c("p2", "mlogp2", "beta2", "se2")){
+            if(!(opt_col %in% colnames(dt2.use))){
+                dt2.use[,temp_col:=NA_real_]
+                setnames(dt2.use,c("temp_col"),c(opt_col))
+            }
+        }
+        if(! "low_purity2" %in% colnames(dt2.use)){
+            dt2.use[, low_purity2 := NA]
+        }
+        # Calculate p-value from beta and se where p is NA but beta and se are available
+        dt2.use[is.na(p2) & !is.na(beta2) & !is.na(se2), p2 := 2 * pnorm(-abs(beta2 / se2))]
+        # Calculate -log10(p) from beta and se to avoid underflow
+        dt2.use[!is.na(beta2) & !is.na(se2) & se2 > 0, mlogp2 := -pnorm(-abs(beta2 / se2), log.p=TRUE) / log(10) - log10(2)]
+
+        cs2_original = unique(dt2.use$cs2)
+        cs2_mapping = NULL
+        cs2_reverse_mapping = NULL
+        
+        # Handle cs2: create mapping if non-numeric
+        if(!is.numeric(cs2_original)) {
+            # Filter character cs2 values
+            cs2_filtered = cs2_original[!is.na(cs2_original) & cs2_original != "-1" & cs2_original != ""]
+            cs2_filtered = sort(unique(cs2_filtered))
+            
+            # Create bidirectional mapping
+            cs2_mapping = setNames(seq_along(cs2_filtered), cs2_filtered)
+            cs2_reverse_mapping = setNames(names(cs2_mapping), cs2_mapping)
+            
+            # Apply mapping to table
+            dt2.use[, cs2_orig := cs2]
+            dt2.use[, cs2 := as.numeric(cs2_mapping[as.character(cs2)])]
+        }
+
+        cs2 = sort(unique(dt2.use[is.finite(cs2) & cs2 != -1, cs2]))
+
         #calculate cs-specific PIP for credible sets
-        indices_2=unique(dt2.use[cs2>0]$cs2)
-        for(idx in indices_2){
+        for(idx in cs2){
             dt2.use[,temp_alpha:=lbf_to_alpha(dt2.use,paste0("lbf2_",idx))]
             setnames(dt2.use,c("temp_alpha"),c(paste0("pip_calc2_",idx)))
         }
 
         dt3 = merge(dt1.use, dt2.use, by=c("rsid"))
         n_dt3 = nrow(dt3)
-        message(n_dt3, " varints in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
+        message(n_dt3, " variant", ifelse(n_dt3 == 1, "", "s"), " in common, ", nrow(dt1), " in dt1, ", nrow(dt2), " in dt2")
 
         #saveRDS(dt2[, ..use_cols2], file=paste0("dt2.rds"))
         if(debug){
             save(dt1.use, dt2.use, dt3, file=paste0("out.rda"))
         }
-
-        cs1 = unique(dt1.use$cs1)
-        cs2 = unique(dt2.use$cs2)
-        cs1 = cs1[is.finite(cs1) & cs1 != -1]
-        cs2 = cs2[is.finite(cs2) & cs2 != -1]
-
 
         dt.sum1 = data.table()
         dt.hit1 = data.table()
@@ -365,9 +445,7 @@ for(f1 in dt3.cur1$out1){
             message("Invalid cs, common SNPs: ", nrow(dt3), ", size cs1: ", length(cs1), ", cs2: ", length(cs2))
         }else{
             message("Valid cs")
-            # sort the cs
-            cs1 = sort(cs1)
-            cs2 = sort(cs2)
+            
             sel_lbf_cols1 = paste0("lbf1_", cs1)
             sel_lbf_cols2 = paste0("lbf2_", cs2)
 
@@ -384,7 +462,7 @@ for(f1 in dt3.cur1$out1){
             }
 
             dt.sum = ret1$summary
-            if(!is.null(dt.sum)){
+            if(!is.null(dt.sum) & (any(dt.sum$hit1 != "-") | any(dt.sum$hit2 != "-"))){
                 message("Valid coloc results")
                 dt3.1 = dt1.use[!duplicated(cs1)][cs1!= -1, .(cs1, low_purity1)]
                 dt3.2 = dt2.use[!duplicated(cs2)][cs2!= -1, .(cs2, low_purity2)]
@@ -395,6 +473,10 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1 = merge(merge(dt.sum, dt3.1, by.x="idx1", by.y="cs1"), dt3.2, by.x="idx2", by.y="cs2")
                 dt.sum1$dataset1 = dataset1.cur
                 dt.sum1$dataset2 = dataset2.cur
+                dt.sum1$tissue1  = tissue1.cur
+                dt.sum1$tissue2  = tissue2.cur
+                dt.sum1$quant1   = quant1.cur
+                dt.sum1$quant2   = quant2.cur
                 dt.sum1$trait1 = trait1.cur
                 dt.sum1$trait2 = trait2.cur
                 dt.sum1$region1 = region1.cur
@@ -412,7 +494,6 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1 = merge(dt.sum1, dt.lbf1, by="cs1")
                 dt.sum1 = merge(dt.sum1, dt.lbf2, by="cs2")
 
-
                 hits = unique(c(dt.sum1$hit1, dt.sum1$hit2))
                 dt.hit1 = dt3[rsid %in% hits]
 
@@ -425,27 +506,27 @@ for(f1 in dt3.cur1$out1){
                 dt.sum1[, topInOverlap:=NA_character_]
                 dt.sum1[, probmass_1:=NA_character_]
                 dt.sum1[, probmass_2:=NA_character_]
-                dt.sum1[, hit1_info:=NA_character_]
-                dt.sum1[, hit2_info:=NA_character_]
+                dt.sum1[, hit1_beta:=NA_real_]
+                dt.sum1[, hit1_se:=NA_real_]
+                dt.sum1[, hit1_p:=NA_real_]
+                dt.sum1[, hit1_mlogp:=NA_real_]
+                dt.sum1[, hit2_beta:=NA_real_]
+                dt.sum1[, hit2_se:=NA_real_]
+                dt.sum1[, hit2_p:=NA_real_]
+                dt.sum1[, hit2_mlogp:=NA_real_]
                 dt3[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt1.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
                 dt2.use[, pos:=as.numeric(stri_split_fixed(rsid, "_", simplify=TRUE)[, 2])]
 
                 #gather the credible sets.
                 source_1_cs_data = dt1.use[cs1 %in% cs1,]
-                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","cs_specific_prob")
+                out_cols = c("trait","region","rsid","cs","low_purity","p","beta","se","mlogp","cs_specific_prob")
                 cs1_output = list()
                 
                 for(c in unique(cs1)){
                     pip_col = paste0("pip_calc1_",c)
                     c_vars = source_1_cs_data[cs1 == c]
-                    for(opt_col in c("p1","beta1","se1")){
-                        if(!(opt_col %in% colnames(c_vars))){
-                            c_vars[,temp_col:=NA]
-                            setnames(c_vars,c("temp_col"),c(opt_col))
-                        }
-                    } 
-                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    setnames(c_vars,c("trait1","region1","cs1","low_purity1","p1","mlogp1","beta1","se1",pip_col),c("trait","region","cs","low_purity","p","mlogp","beta","se","cs_specific_prob"))
                     cs1_output[[c]]=c_vars[,..out_cols]
                 }
                 #rename columns
@@ -455,20 +536,31 @@ for(f1 in dt3.cur1$out1){
                 for(c in unique(cs2)){
                     pip_col = paste0("pip_calc2_",c)
                     c_vars = source_2_cs_data[cs2 == c]
-                    for(opt_col in c("p2","beta2","se2")){
-                        if(!(opt_col %in% colnames(c_vars))){
-                            c_vars[,temp_col:=NA]
-                            setnames(c_vars,c("temp_col"),c(opt_col))
-                        }
-                    } 
-                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","beta","se","cs_specific_prob"))
+                    setnames(c_vars,c("trait2","region2","cs2","low_purity2","p2","mlogp2","beta2","se2",pip_col),c("trait","region","cs","low_purity","p","mlogp","beta","se","cs_specific_prob"))
                     cs2_output[[c]]=c_vars[,..out_cols]
                 }
                 source_1_data = rbindlist(cs1_output)
                 source_2_data = rbindlist(cs2_output)
-                source_1_data$dataset=dataset_id_1
-                source_2_data$dataset=dataset_id_2
+                source_1_data$dataset = dataset_id_1
+                source_1_data$tissue  = tissue_id_1
+                source_1_data$quant   = quant_id_1
+                source_2_data$dataset = dataset_id_2
+                source_2_data$tissue  = tissue_id_2
+                source_2_data$quant   = quant_id_2
                 cs_data = rbind(source_1_data,source_2_data)
+                
+                # Map cs back to original values if needed
+                if(!is.null(cs1_reverse_mapping) || !is.null(cs2_reverse_mapping)) {
+                    # Convert cs to character to handle mixed types
+                    cs_data[, cs := as.character(cs)]
+                }
+                if(!is.null(cs1_reverse_mapping)) {
+                    cs_data[dataset == dataset_id_1, cs := cs1_reverse_mapping[as.character(cs)]]
+                }
+                if(!is.null(cs2_reverse_mapping)) {
+                    cs_data[dataset == dataset_id_2, cs := cs2_reverse_mapping[as.character(cs)]]
+                }
+                
                 fwrite(cs_data,output.credsets,sep="\t",append=credset_append,na="NA",quote=F)
                 credset_append=TRUE
                 
@@ -480,11 +572,10 @@ for(f1 in dt3.cur1$out1){
                     #Note: need to set alphas for the common variant set
                     dt3.cur[, pp:=get(paste0("pip_calc1_",idx1))*get(paste0("pip_calc2_",idx2))]
                     dt3.cur[, pa:=pmin(get(paste0("pip_calc1_",idx1)),get(paste0("pip_calc2_",idx2)))]
-                    dt.sum1$cs1_size[idx] = nrow(dt1[cs1==idx1])
-                    dt.sum1$cs2_size[idx] = nrow(dt2[cs2==idx2])
+                    dt.sum1$cs1_size[idx] = nrow(dt1.use[cs1==idx1])
+                    dt.sum1$cs2_size[idx] = nrow(dt2.use[cs2==idx2])
                     dt.sum1$cs_overlap[idx] = nrow(dt3.cur)
                     
-
                     if(nrow(dt3.cur) != 0){
                         dt.sum1$clpp[idx] = sum(dt3.cur$pp, na.rm=TRUE)
                         dt.sum1$clpa[idx] = sum(dt3.cur$pa, na.rm=TRUE)
@@ -518,10 +609,18 @@ for(f1 in dt3.cur1$out1){
                     dt.sum1$probmass_1[idx] = probmass_in_shared_1
                     dt.sum1$probmass_2[idx] = probmass_in_shared_2
                     dt.sum1$topInOverlap[idx] = paste0(inRegion1, ",", inRegion2)
+
                     dt.hit1.1 = dt.hit1[rsid == dt.sum1$hit1[idx]]
-                    dt.sum1$hit1_info[idx] = paste0(c(dt.hit1.1$beta1, dt.hit1.1$p1), collapse=",")
+                    dt.sum1$hit1_beta[idx] = dt.hit1.1$beta1
+                    dt.sum1$hit1_se[idx] = dt.hit1.1$se1
+                    dt.sum1$hit1_p[idx] = dt.hit1.1$p1
+                    dt.sum1$hit1_mlogp[idx] = dt.hit1.1$mlogp1
+
                     dt.hit1.2 = dt.hit1[rsid == dt.sum1$hit2[idx]]
-                    dt.sum1$hit2_info[idx] = paste0(c(dt.hit1.2$beta2, dt.hit1.2$p2), collapse=",")
+                    dt.sum1$hit2_beta[idx] = dt.hit1.2$beta2
+                    dt.sum1$hit2_se[idx] = dt.hit1.2$se2
+                    dt.sum1$hit2_p[idx] = dt.hit1.2$p2
+                    dt.sum1$hit2_mlogp[idx] = dt.hit1.2$mlogp2
 
                     #gather H4 tables
                     if(nrow(dt.sum1)==1){
@@ -536,21 +635,45 @@ for(f1 in dt3.cur1$out1){
                     #columns for H4 table: rsid, SNP.PP.H4, dataset1, dataset2, trait1, trait2, region1, region2, cs1, <cs2
                     h4_pp_data$dataset1 = dataset_id_1
                     h4_pp_data$dataset2 = dataset_id_2
+                    h4_pp_data$tissue1  = tissue_id_1
+                    h4_pp_data$tissue2  = tissue_id_2
+                    h4_pp_data$quant1   = quant_id_1
+                    h4_pp_data$quant2   = quant_id_2
                     h4_pp_data$trait1 = dt.sum1$trait1[idx]
                     h4_pp_data$trait2 = dt.sum1$trait2[idx]
                     h4_pp_data$region1 = dt.sum1$region1[idx]
                     h4_pp_data$region2 = dt.sum1$region2[idx]
                     h4_pp_data$cs1 = idx1
                     h4_pp_data$cs2 = idx2
-                    h4_cols = c("dataset1","dataset2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
+                    
+                    # Map cs back to original values if needed
+                    if(!is.null(cs1_reverse_mapping)) {
+                        h4_pp_data$cs1 = cs1_reverse_mapping[as.character(h4_pp_data$cs1)]
+                    }
+                    if(!is.null(cs2_reverse_mapping)) {
+                        h4_pp_data$cs2 = cs2_reverse_mapping[as.character(h4_pp_data$cs2)]
+                    }
+                    
+                    h4_cols = c("dataset1","dataset2","tissue1","tissue2","quant1","quant2","trait1","trait2","region1","region2","cs1","cs2","snp","SNP.PP.H4")
                     setcolorder(h4_pp_data,h4_cols)
                     fwrite(h4_pp_data,output.h4_vars,sep="\t",append=h4_vars_append,na="NA",quote=F,compress="gzip")
                     h4_vars_append=TRUE
                 }
             }else{
-                message(" Invalid coloc results")
+                message("Invalid coloc results")
             }
         }
+        
+        # Map cs back to original values in dt.sum1 if needed
+        if(nrow(dt.sum1) > 0) {
+            if(!is.null(cs1_reverse_mapping)) {
+                dt.sum1[, cs1 := cs1_reverse_mapping[as.character(cs1)]]
+            }
+            if(!is.null(cs2_reverse_mapping)) {
+                dt.sum1[, cs2 := cs2_reverse_mapping[as.character(cs2)]]
+            }
+        }
+        
         dts[[nProcess]] = dt.sum1
         dts.hits[[nProcess]] = dt.hit1
     }
@@ -560,7 +683,7 @@ for(f1 in dt3.cur1$out1){
 dt.coloc = rbindlist(dts)
 dt.hits = rbindlist(dts.hits, fill=TRUE)
 if(nrow(dt.coloc) != 0){
-    setcolorder(dt.coloc, c("dataset1", "dataset2", "trait1", "trait2", "region1", "region2", "cs1", "cs2"))
+    setcolorder(dt.coloc, c("dataset1","dataset2","tissue1","tissue2","quant1","quant2","trait1","trait2","region1","region2","cs1","cs2"))
 }
 fwrite(dt.coloc, file=output, sep="\t", na="NA", quote=F)
 fwrite(dt.hits, file=output.hits, sep="\t", na="NA",quote=F)
